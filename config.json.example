@@ -1,6 +1,7 @@
 {
-  "app_id": "your_app_id_here",
-  "cookie": "your_cookie_here",
-  "product_id": "your_product_id_here",
-  "download_dir": "download"
+"app_id": "your_app_id_here",
+"cookie": "your_cookie_here",
+"product_id": "your_product_id_here",
+"download_dir": "download",
+"max_workers": 10
 }

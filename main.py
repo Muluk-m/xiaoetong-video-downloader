@@ -30,6 +30,8 @@ def main():
         epilog="""
 使用示例:
   python main.py                           # 下载整个课程
+  python main.py --interactive            # 交互式选择要下载的视频
+  python main.py --list                   # 列出所有课程视频
   python main.py --single v_123456        # 下载单个视频
   python main.py --config custom.json     # 使用自定义配置文件
   python main.py --no-cache               # 忽略缓存重新下载
@@ -47,6 +49,18 @@ def main():
     parser.add_argument(
         '--single', '-s',
         help='下载单个视频资源ID'
+    )
+    
+    parser.add_argument(
+        '--interactive', '-i',
+        action='store_true',
+        help='交互式选择要下载的视频'
+    )
+    
+    parser.add_argument(
+        '--list', '-l',
+        action='store_true',
+        help='列出所有课程视频'
     )
     
     parser.add_argument(
@@ -103,6 +117,45 @@ def main():
         if not manager.check_environment():
             logger.error("环境检查失败，请先解决环境问题")
             return 1
+        
+        # 列出课程视频
+        if args.list:
+            logger.info("正在获取课程列表...")
+            videos = manager.list_course_videos()
+            
+            if not videos:
+                logger.error("没有找到可下载的视频")
+                return 1
+            
+            print("\n" + "="*100)
+            print(f"课程视频列表 (共 {len(videos)} 个):")
+            print("="*100)
+            for index, video in enumerate(videos, 1):
+                title = video.get('resource_title', '未知标题')
+                resource_id = video.get('resource_id', '')
+                start_at = video.get('start_at', '')
+                learn_progress = video.get('learn_progress', 0)
+                
+                # 进度条
+                progress_bar = manager._make_progress_bar(learn_progress)
+                
+                print(f"{index:3d}. {title}")
+                print(f"     ID: {resource_id} | 日期: {start_at} | 进度: {progress_bar} {learn_progress}%")
+            print("="*100)
+            return 0
+        
+        # 交互式下载
+        if args.interactive:
+            logger.info("进入交互式下载模式")
+            results = manager.interactive_download(
+                nocache=args.no_cache,
+                auto_transcode=not args.no_transcode
+            )
+            
+            if results['failed']:
+                return 1
+            else:
+                return 0
         
         # 下载单个视频
         if args.single:

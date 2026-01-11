@@ -49,29 +49,59 @@ class XiaoetAPIClient:
             raise Exception(f"解析导航信息响应失败: {str(e)}")
     
     def get_column_items(self, column_id: str, page_index: int = 1, 
-                        page_size: int = 100, sort: str = 'desc') -> List[Tuple[str, str]]:
-        """获取专栏项目列表"""
-        url = self.GET_COLUMN_ITEMS_URL.format(self.config.app_id)
-        payload = {
-            'bizData[column_id]': column_id,
-            'bizData[page_index]': str(page_index),
-            'bizData[page_size]': str(page_size),
-            'bizData[sort]': sort
-        }
-        headers = {
-            'cookie': self.config.cookie,
-        }
+                        page_size: int = 100, sort: str = 'desc') -> List[Dict[str, Any]]:
+        """
+        获取专栏项目列表
         
-        try:
-            response = requests.post(url, headers=headers, data=payload)
-            response.raise_for_status()
-            data = response.json().get('data', {})
-            items = data.get('list', [])
-            return [(item.get('resource_id'), item.get('resource_title')) for item in items]
-        except requests.RequestException as e:
-            raise Exception(f"获取专栏项目列表失败: {str(e)}")
-        except json.JSONDecodeError as e:
-            raise Exception(f"解析专栏项目列表响应失败: {str(e)}")
+        Returns:
+            List[Dict]: 包含资源详细信息的列表，每个字典包含：
+                - resource_id: 资源ID
+                - resource_title: 资源标题
+                - resource_type: 资源类型（3=视频）
+                - start_at: 开始时间
+                - learn_progress: 学习进度（0-100）
+                - 等等
+        """
+        url = self.GET_COLUMN_ITEMS_URL.format(self.config.app_id)
+        
+        all_items = []
+        current_page = page_index
+        
+        while True:
+            payload = {
+                'bizData[column_id]': column_id,
+                'bizData[page_index]': str(current_page),
+                'bizData[page_size]': str(page_size),
+                'bizData[sort]': sort
+            }
+            headers = {
+                'cookie': self.config.cookie,
+            }
+            
+            try:
+                response = requests.post(url, headers=headers, data=payload)
+                response.raise_for_status()
+                data = response.json().get('data', {})
+                items = data.get('list', [])
+                total = data.get('total', 0)
+                
+                if not items:
+                    break
+                
+                all_items.extend(items)
+                
+                # 如果已获取所有数据，退出循环
+                if len(all_items) >= total:
+                    break
+                
+                current_page += 1
+                
+            except requests.RequestException as e:
+                raise Exception(f"获取专栏项目列表失败: {str(e)}")
+            except json.JSONDecodeError as e:
+                raise Exception(f"解析专栏项目列表响应失败: {str(e)}")
+        
+        return all_items
     
     def get_video_detail_info(self, resource_id: str) -> Dict[str, Any]:
         """获取视频详情信息"""

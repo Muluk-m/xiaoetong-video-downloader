@@ -110,6 +110,12 @@ cp config.json.example config.json
 
 #### 基本用法
 ```bash
+# 交互式下载（推荐）
+python main.py --interactive
+
+# 列出所有课程视频
+python main.py --list
+
 # 下载整个课程
 python main.py
 
@@ -128,14 +134,38 @@ python main.py --help
 # 使用自定义配置文件
 python main.py --config my_config.json
 
-# 忽略缓存重新下载
-python main.py --no-cache
+# 交互式下载时忽略缓存
+python main.py --interactive --no-cache
 
 # 只下载不转码
-python main.py --no-transcode
+python main.py --interactive --no-transcode
 
 # 显示详细日志
 python main.py --verbose
+```
+
+#### 交互式下载说明
+
+交互式模式支持灵活的选择方式：
+
+```bash
+# 单个视频
+请输入: 1
+
+# 多个视频（用逗号分隔）
+请输入: 1,3,5,7
+
+# 范围选择
+请输入: 1-10
+
+# 混合选择
+请输入: 1,3-5,8,10-15
+
+# 下载全部
+请输入: all 或 *
+
+# 取消
+请输入: q 或 quit
 ```
 
 ## 📋 配置说明
