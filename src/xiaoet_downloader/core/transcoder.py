@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os
-import ffmpy
+import subprocess
 from typing import Optional
 
 from ..models.video import VideoResource, VideoMetadata, DownloadResult, DownloadStatus
@@ -60,15 +60,39 @@ class VideoTranscoder:
             resource.download_status = DownloadStatus.TRANSCODING
             logger.info(f"开始合并视频: {safe_title}")
             
-            # 使用ffmpy进行视频合并
+            # 使用ffmpeg进行视频合并
             input_file = os.path.join(resource_dir, 'video.m3u8')
-            ff = ffmpy.FFmpeg(
-                inputs={input_file: ['-protocol_whitelist', 'crypto,file,http,https,tcp,tls']}, 
-                outputs={output_file: "-c:v copy -c:a copy"}
+            
+            # 构建ffmpeg命令
+            cmd = [
+                'ffmpeg',
+                '-protocol_whitelist', 'crypto,file,http,https,tcp,tls',
+                '-allowed_extensions', 'ALL',
+                '-i', input_file,
+                '-c:v', 'copy',
+                '-c:a', 'copy',
+                output_file
+            ]
+            
+            logger.info(f"执行命令: {' '.join(cmd)}")
+            
+            # 临时禁用HTTP代理以避免ffmpeg出现httpproxy协议错误
+            env = os.environ.copy()
+            env.pop('http_proxy', None)
+            env.pop('https_proxy', None)
+            env.pop('HTTP_PROXY', None)
+            env.pop('HTTPS_PROXY', None)
+            
+            # 运行ffmpeg
+            result = subprocess.run(
+                cmd,
+                env=env,
+                capture_output=True,
+                text=True
             )
             
-            logger.info(f"执行命令: {ff.cmd}")
-            ff.run()
+            if result.returncode != 0:
+                raise Exception(f"ffmpeg 退出码 {result.returncode}: {result.stderr}")
             
             # 验证输出文件
             if os.path.exists(output_file) and FileUtils.get_file_size(output_file) > 0:
@@ -79,11 +103,11 @@ class VideoTranscoder:
             else:
                 return DownloadResult(resource, False, "合并后文件不存在或为空")
                 
-        except ffmpy.FFExecutableNotFoundError:
+        except FileNotFoundError:
             error_msg = "未找到ffmpeg可执行文件，请确保已正确安装ffmpeg"
             logger.error(error_msg)
             return DownloadResult(resource, False, error_msg)
-        except ffmpy.FFRuntimeError as e:
+        except subprocess.CalledProcessError as e:
             error_msg = f"视频合并过程中出错: {str(e)}"
             logger.error(error_msg)
             # 如果输出文件已部分创建但不完整，删除它
@@ -103,8 +127,12 @@ class VideoTranscoder:
     def check_ffmpeg_availability(self) -> bool:
         """检查ffmpeg是否可用"""
         try:
-            ff = ffmpy.FFmpeg(inputs={'dummy': None}, outputs={'dummy': None})
-            # 只是检查ffmpeg是否存在，不实际运行
-            return True
-        except ffmpy.FFExecutableNotFoundError:
+            result = subprocess.run(
+                ['ffmpeg', '-version'],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            return result.returncode == 0
+        except (FileNotFoundError, subprocess.TimeoutExpired):
             return False

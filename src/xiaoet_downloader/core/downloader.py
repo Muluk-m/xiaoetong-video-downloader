@@ -75,6 +75,11 @@ class VideoDownloader:
             
             logger.info(f"总计 {total_segments} 个视频片段")
             
+            # 下载加密密钥（如果存在）
+            key_file = None
+            if media.keys:
+                key_file = self._download_encryption_keys(media.keys, resource_dir)
+            
             # 下载每个视频片段
             for index, segment in enumerate(media.data['segments']):
                 ts_file = os.path.join(resource_dir, f'v_{index}.ts')
@@ -100,6 +105,11 @@ class VideoDownloader:
             m3u8_file = os.path.join(resource_dir, 'video.m3u8')
             if changed or not os.path.exists(m3u8_file):
                 media.segments = segments
+                # 如果下载了密钥，修改m3u8使用本地密钥
+                if key_file and media.keys:
+                    for key in media.keys:
+                        if key:
+                            key.uri = os.path.basename(key_file)
                 with open(m3u8_file, 'w', encoding='utf8') as f:
                     f.write(media.dumps())
             
@@ -177,3 +187,62 @@ class VideoDownloader:
         
         logger.error(f"[{current}/{total}] 达到最大重试次数，下载失败")
         return False
+    
+    def _download_encryption_keys(self, keys: List, resource_dir: str, max_retries: int = 3) -> Optional[str]:
+        """
+        下载HLS加密密钥
+        
+        Args:
+            keys: 密钥列表
+            resource_dir: 资源目录
+            max_retries: 最大重试次数
+            
+        Returns:
+            Optional[str]: 密钥文件路径，如果下载失败返回None
+        """
+        if not keys:
+            return None
+        
+        # 获取第一个有效的密钥
+        key = None
+        for k in keys:
+            if k and hasattr(k, 'uri') and k.uri:
+                key = k
+                break
+        
+        if not key or not key.uri:
+            logger.debug("没有找到有效的加密密钥")
+            return None
+        
+        key_file = os.path.join(resource_dir, 'encryption.key')
+        
+        # 如果密钥文件已存在，直接返回
+        if os.path.exists(key_file):
+            logger.info("加密密钥文件已存在")
+            return key_file
+        
+        logger.info(f"开始下载加密密钥: {key.uri}")
+        
+        retry_count = 0
+        while retry_count < max_retries:
+            try:
+                response = self.session.get(key.uri, timeout=30)
+                if response.status_code == 200:
+                    # 写入密钥文件
+                    temp_file = key_file + '.tmp'
+                    with open(temp_file, 'wb') as f:
+                        f.write(response.content)
+                    os.rename(temp_file, key_file)
+                    logger.info(f"加密密钥下载成功，大小: {len(response.content)} 字节")
+                    return key_file
+                else:
+                    logger.warning(f"下载密钥失败: HTTP {response.status_code}")
+                    retry_count += 1
+            except requests.exceptions.RequestException as e:
+                logger.warning(f"下载密钥出错: {str(e)}")
+                retry_count += 1
+                if retry_count < max_retries:
+                    time.sleep(1)
+        
+        logger.error("达到最大重试次数，密钥下载失败")
+        return None

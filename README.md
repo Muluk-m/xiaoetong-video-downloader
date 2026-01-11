@@ -195,6 +195,23 @@ python -m pytest tests/test_config.py
    解决方案: 重新获取Cookie并更新配置文件
    ```
 
+5. **加密视频合并失败 (httpproxy错误)**
+   ```
+   问题: ffmpeg合并视频时出现 "Protocol 'httpproxy' not on whitelist" 错误
+   原因: 系统配置了HTTP代理，ffmpeg无法通过代理访问加密密钥
+   
+   解决方案: 运行修复脚本下载密钥到本地
+   make fix
+   
+   或者手动运行:
+   python scripts/fix_encrypted_videos.py
+   
+   该脚本会：
+   - 下载加密密钥文件到本地
+   - 更新m3u8文件使用本地密钥
+   - 之后ffmpeg就不需要访问网络了
+   ```
+
 ### 日志查看
 
 程序运行时会在 `logs/` 目录下生成日志文件，可以查看详细的运行信息：

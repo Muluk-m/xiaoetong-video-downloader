@@ -1,4 +1,4 @@
-.PHONY: help install test clean run setup check
+.PHONY: help install test clean run setup check fix
 
 help:
 	@echo "小鹅通视频下载器 - 可用命令:"
@@ -7,10 +7,11 @@ help:
 	@echo "  make test       - 运行测试"
 	@echo "  make run        - 运行程序"
 	@echo "  make check      - 检查环境"
+	@echo "  make fix        - 修复已下载的加密视频"
 	@echo "  make clean      - 清理临时文件"
 
 install:
-	pip install -r requirements.txt
+	pip3 install -r requirements.txt
 
 setup:
 	python scripts/setup.py
@@ -23,6 +24,9 @@ run:
 
 check:
 	python main.py --check
+
+fix:
+	python scripts/fix_encrypted_videos.py
 
 clean:
 	find . -type f -name "*.pyc" -delete
