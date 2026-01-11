@@ -14,6 +14,7 @@ class XiaoetConfig:
     cookie: str
     product_id: str
     download_dir: str = 'download'
+    max_workers: int = 5  # 最大并发下载数
     
     @classmethod
     def from_file(cls, config_path: str) -> 'XiaoetConfig':
@@ -26,7 +27,8 @@ class XiaoetConfig:
                 app_id=config_data.get('app_id', ''),
                 cookie=config_data.get('cookie', ''),
                 product_id=config_data.get('product_id', ''),
-                download_dir=config_data.get('download_dir', 'download')
+                download_dir=config_data.get('download_dir', 'download'),
+                max_workers=config_data.get('max_workers', 5)
             )
         except FileNotFoundError:
             raise FileNotFoundError(f"配置文件 {config_path} 不存在")
@@ -51,5 +53,6 @@ class XiaoetConfig:
             'app_id': self.app_id,
             'cookie': self.cookie,
             'product_id': self.product_id,
-            'download_dir': self.download_dir
+            'download_dir': self.download_dir,
+            'max_workers': self.max_workers
         }
