@@ -1,10 +1,10 @@
 # 小鹅通视频下载器 
 
-# 写在最前面
-## 这个项目是学习使用的，很多老哥给我提issue报bug，感恩~ 但我代码确实没写完😂
-## 急用的兄弟参考这个教程，官方出的，亲测可用！
-## 对于只想下视频，并不想了解原理的，直接用下面这个方法
-[如何把小鹅通里已购的网课视频下载下来，随时随地离线观看？](https://www.xiaoet.cn/article/1906527284305133568)
+Fork from [https://github.com/miaoyc666/xiaoetong-video-downloader](https://github.com/miaoyc666/xiaoetong-video-downloader)
+
+相比原版修复了一些错误，然后新增了以下功能：
+- 支持加密视频下载
+- 支持并发下载
 
 
 # Download Xiaoet videos
@@ -23,6 +23,8 @@
 - 📝 **日志系统**: 完整的日志记录和管理
 - 🧪 **单元测试**: 包含测试用例，保证代码质量
 - 🎯 **命令行工具**: 友好的命令行界面
+- ⚡ **并发下载**: 多线程并发下载，大幅提升下载速度
+- 🔐 **加密支持**: 自动处理 HLS AES-128 加密视频
 
 ## 📁 项目结构
 
@@ -90,7 +92,8 @@ cp config.json.example config.json
   "app_id": "你的app_id",
   "cookie": "你的cookie",
   "product_id": "你的product_id",
-  "download_dir": "download"
+  "download_dir": "download",
+  "max_workers": 10
 }
 ```
 
@@ -137,12 +140,13 @@ python main.py --verbose
 
 ## 📋 配置说明
 
-| 字段 | 说明 | 获取方式 |
-|------|------|----------|
-| app_id | 店铺唯一标识 | 课程链接URL中获取，如 `https://appisb9y2un7034.xet.citv.cn/...` 中的 `appisb9y2un7034` |
-| cookie | 小鹅通web端的Cookie | 浏览器开发者工具中获取 |
-| product_id | 课程唯一标识 | 课程链接URL中获取，如 `https://...xet.citv.cn/p/course/column/p_608baa19e4b071a81eb6ebbc` 中的 `p_608baa19e4b071a81eb6ebbc` |
-| download_dir | 下载目录 | 可选，默认为 `download` |
+| 字段 | 说明 | 获取方式 | 默认值 |
+|------|------|----------|--------|
+| app_id | 店铺唯一标识 | 课程链接URL中获取，如 `https://appisb9y2un7034.xet.citv.cn/...` 中的 `appisb9y2un7034` | - |
+| cookie | 小鹅通web端的Cookie | 浏览器开发者工具中获取 | - |
+| product_id | 课程唯一标识 | 课程链接URL中获取，如 `https://...xet.citv.cn/p/course/column/p_608baa19e4b071a81eb6ebbc` 中的 `p_608baa19e4b071a81eb6ebbc` | - |
+| download_dir | 下载目录 | 可选，自定义下载目录路径 | `download` |
+| max_workers | 最大并发下载数 | 可选，建议 5-20，根据网络环境调整 | `5` |
 
 ## 🔧 开发指南
 
