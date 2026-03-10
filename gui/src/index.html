@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>小鹅通视频下载器</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- 顶部标题栏 -->
+    <header class="header">
+      <h1>小鹅通视频下载器</h1>
+      <div class="header-actions">
+        <span id="server-status" class="status-badge status-connecting">后端连接中...</span>
+      </div>
+    </header>
+
+    <!-- 标签页导航 -->
+    <nav class="tabs">
+      <button class="tab active" data-tab="config">配置</button>
+      <button class="tab" data-tab="videos">视频列表</button>
+      <button class="tab" data-tab="download">下载任务</button>
+    </nav>
+
+    <!-- ====== 配置页 ====== -->
+    <div class="tab-content active" id="tab-config">
+      <div class="card">
+        <h2>Cookie 设置</h2>
+        <div class="form-row">
+          <label>Cookie</label>
+          <div class="input-group">
+            <textarea id="input-cookie" rows="3" placeholder="粘贴 Cookie 或点击右侧按钮自动获取"></textarea>
+            <button id="btn-auto-cookie" class="btn btn-primary" title="从 Chrome 自动读取">自动获取</button>
+          </div>
+          <p id="cookie-hint" class="hint"></p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>课程配置</h2>
+        <div class="form-row">
+          <label>App ID</label>
+          <input id="input-app-id" type="text" placeholder="如: appuab59i5o3529" />
+        </div>
+        <div class="form-row">
+          <label>Product ID (课程ID)</label>
+          <input id="input-product-id" type="text" placeholder="如: p_693bd2bfe4b0694c5b61a406" />
+        </div>
+        <div class="form-row">
+          <label>下载目录</label>
+          <input id="input-download-dir" type="text" placeholder="download" />
+        </div>
+        <div class="form-row">
+          <label>并发数</label>
+          <input id="input-max-workers" type="number" min="1" max="10" value="5" />
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="btn-save-config" class="btn btn-primary">保存配置</button>
+        <button id="btn-check-env" class="btn btn-outline">检查环境</button>
+      </div>
+      <p id="config-message" class="message"></p>
+    </div>
+
+    <!-- ====== 视频列表页 ====== -->
+    <div class="tab-content" id="tab-videos">
+      <div class="card">
+        <div class="toolbar">
+          <button id="btn-refresh-videos" class="btn btn-primary">刷新列表</button>
+          <span id="video-count" class="hint"></span>
+          <div class="toolbar-right">
+            <button id="btn-select-all" class="btn btn-sm">全选</button>
+            <button id="btn-deselect-all" class="btn btn-sm">取消全选</button>
+            <button id="btn-download-selected" class="btn btn-primary btn-sm">下载选中</button>
+          </div>
+        </div>
+      </div>
+      <div id="video-list" class="video-list">
+        <div class="empty-state">点击"刷新列表"获取课程视频</div>
+      </div>
+    </div>
+
+    <!-- ====== 下载任务页 ====== -->
+    <div class="tab-content" id="tab-download">
+      <div class="card">
+        <div class="toolbar">
+          <h2 style="margin:0">下载进度</h2>
+          <div class="toolbar-right">
+            <button id="btn-cancel-download" class="btn btn-danger btn-sm" style="display:none">取消下载</button>
+          </div>
+        </div>
+        <div id="download-overview" class="download-overview">
+          <div class="stat">
+            <span class="stat-label">状态</span>
+            <span id="dl-status" class="stat-value">空闲</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">总进度</span>
+            <span id="dl-progress" class="stat-value">-</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">当前视频</span>
+            <span id="dl-current" class="stat-value">-</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">分片进度</span>
+            <span id="dl-segments" class="stat-value">-</span>
+          </div>
+        </div>
+        <!-- 总进度条 -->
+        <div id="download-progress-bar" class="progress-bar-container" style="display:none">
+          <div id="dl-bar" class="progress-bar"></div>
+        </div>
+        <!-- 分片进度条 -->
+        <div id="segment-progress-bar" class="progress-bar-container" style="display:none;margin-top:6px">
+          <div id="seg-bar" class="progress-bar progress-bar-segments"></div>
+        </div>
+        <div id="segment-pct" class="hint" style="text-align:right;margin-top:2px;display:none"></div>
+      </div>
+      <div class="card">
+        <h3>日志</h3>
+        <div id="download-log" class="log-area">
+          <div class="empty-state">暂无下载任务</div>
+        </div>
+      </div>
+      <div id="download-results" class="card" style="display:none">
+        <h3>下载结果</h3>
+        <div id="results-content"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="main.js"></script>
+</body>
+</html>

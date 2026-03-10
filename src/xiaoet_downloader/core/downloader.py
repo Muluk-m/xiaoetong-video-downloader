@@ -5,9 +5,7 @@ import os
 import time
 import requests
 import m3u8
-import threading
-from typing import List, Optional, Tuple
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Callable, List, Optional, Tuple
 from m3u8.model import SegmentList, Segment, find_key
 
 from ..models.config import XiaoetConfig
@@ -28,8 +26,9 @@ class VideoDownloader:
             'Referer': f'https://{config.app_id}.h5.xiaoeknow.com/'
         })
     
-    def download_m3u8_video(self, resource: VideoResource, play_url: str, 
-                           download_dir: str, nocache: bool = False) -> DownloadResult:
+    def download_m3u8_video(self, resource: VideoResource, play_url: str,
+                           download_dir: str, nocache: bool = False,
+                           progress_callback: Optional[Callable[[int, int], None]] = None) -> DownloadResult:
         """
         下载m3u8视频
         
@@ -82,60 +81,30 @@ class VideoDownloader:
             if media.keys:
                 key_file = self._download_encryption_keys(media.keys, resource_dir)
             
-            # 使用线程安全的计数器
-            lock = threading.Lock()
-            
-            # 准备下载任务
-            download_tasks = []
+            # 下载每个视频片段
             for index, segment in enumerate(media.data['segments']):
                 ts_file = os.path.join(resource_dir, f'v_{index}.ts')
                 
                 # 如果文件已存在且不忽略缓存，则跳过
                 if not nocache and os.path.exists(ts_file):
                     logger.info(f"[{index+1}/{total_segments}] 已下载: {os.path.basename(ts_file)}")
-                    with lock:
-                        downloaded_segments += 1
+                    downloaded_segments += 1
                 else:
-                    # 添加到下载任务列表
-                    download_tasks.append((index, segment, ts_file))
+                    # 下载片段
+                    success = self._download_segment(segment, ts_file, url_prefix, index + 1, total_segments)
+                    if success:
+                        changed = True
+                        downloaded_segments += 1
+                    else:
+                        complete = False
+
+                # 上报分片级进度
+                if progress_callback:
+                    progress_callback(downloaded_segments, total_segments)
                 
                 # 更新片段URI为本地文件
                 segment['uri'] = f'v_{index}.ts'
                 segments.append(Segment(base_uri=None, keyobject=find_key(segment.get('key', {}), media.keys), **segment))
-            
-            # 并发下载视频片段
-            if download_tasks:
-                logger.info(f"使用 {self.config.max_workers} 个线程并发下载 {len(download_tasks)} 个片段")
-                changed = True
-                
-                with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
-                    # 提交所有下载任务
-                    future_to_task = {
-                        executor.submit(
-                            self._download_segment,
-                            segment,
-                            ts_file,
-                            url_prefix,
-                            index + 1,
-                            total_segments
-                        ): (index, ts_file)
-                        for index, segment, ts_file in download_tasks
-                    }
-                    
-                    # 等待所有任务完成
-                    for future in as_completed(future_to_task):
-                        index, ts_file = future_to_task[future]
-                        try:
-                            success = future.result()
-                            with lock:
-                                if success:
-                                    downloaded_segments += 1
-                                else:
-                                    complete = False
-                        except Exception as e:
-                            logger.error(f"[{index+1}/{total_segments}] 下载任务异常: {str(e)}")
-                            with lock:
-                                complete = False
             
             # 生成本地m3u8文件
             m3u8_file = os.path.join(resource_dir, 'video.m3u8')

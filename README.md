@@ -1,119 +1,82 @@
-# 小鹅通视频下载器 
+<p align="center">
+  <img src="assets/logo.svg" width="128" height="128" alt="logo">
+</p>
 
-Fork from [https://github.com/miaoyc666/xiaoetong-video-downloader](https://github.com/miaoyc666/xiaoetong-video-downloader)
+<h1 align="center">小鹅通视频下载器</h1>
 
-相比原版修复了一些错误，然后新增了以下功能：
-- 支持加密视频下载
-- 支持并发下载
+<p align="center">
+  一款带 GUI 界面的小鹅通课程视频下载工具，支持自动读取 Chrome Cookie、加密视频、批量下载。
+</p>
 
+<p align="center">
+  <a href="#桌面端下载">桌面端下载</a> · <a href="#命令行使用">命令行使用</a> · <a href="#常见问题">常见问题</a>
+</p>
 
-# Download Xiaoet videos
-> 小鹅通资源下载工具
-> 本工具仅支持用户已购买课程的下载，并不存在付费课程的破解
-> 本工具仅供自用和学习交流使用，请勿用于商业用途
+---
 
-## 代码改版，近期不要使用啦   2025-6-15
+> 本工具仅支持下载用户已购买的课程，不存在任何破解行为。仅供个人学习使用，请勿用于商业用途。
 
-## ✨ 新版本特性
+## 功能特性
 
-- 🏗️ **工程化架构**: 采用模块化设计，代码结构清晰
-- 🛡️ **健壮性增强**: 完善的错误处理和重试机制
-- 📊 **进度反馈**: 详细的下载进度和状态显示
-- 🔧 **配置管理**: 灵活的配置文件管理
-- 📝 **日志系统**: 完整的日志记录和管理
-- 🧪 **单元测试**: 包含测试用例，保证代码质量
-- 🎯 **命令行工具**: 友好的命令行界面
-- ⚡ **并发下载**: 多线程并发下载，大幅提升下载速度
-- 🔐 **加密支持**: 自动处理 HLS AES-128 加密视频
+- **桌面端 GUI** — 基于 Tauri 的原生桌面应用，可视化操作
+- **自动读取 Cookie** — 一键从 Chrome 浏览器获取登录态，无需手动复制
+- **加密视频支持** — 自动处理 HLS AES-128 加密流
+- **批量下载** — 勾选多个视频一键下载，支持全选
+- **实时进度** — 视频级 + 分片级双层进度显示
+- **自动转码** — 下载完成后自动合并为 MP4（需要 ffmpeg）
+- **命令行模式** — 同时保留完整的 CLI 工具，适合服务器/脚本使用
 
-## 📁 项目结构
+## 桌面端下载
+
+前往 [Releases](../../releases) 页面下载最新版本：
+
+| 平台 | 文件 |
+|------|------|
+| macOS (Apple Silicon) | `小鹅通视频下载器_x.x.x_aarch64.dmg` |
+| macOS (Intel) | `小鹅通视频下载器_x.x.x_x64.dmg` |
+
+> 首次打开 macOS 可能提示"无法验证开发者"，请在 **系统设置 → 隐私与安全性** 中允许打开。
+
+### 前提条件
+
+- **ffmpeg**：视频转码需要，推荐通过 Homebrew 安装
+  ```bash
+  brew install ffmpeg
+  ```
+- **Python 3.10+**：桌面端会自动调用项目自带的 Python 后端
+
+## 桌面端使用
+
+1. 打开应用，在「配置」页点击 **自动获取** Cookie（确保 Chrome 已登录小鹅通）
+2. 填写 `App ID` 和 `Product ID`（从课程链接中获取）
+3. 点击 **保存配置**
+4. 切换到「视频列表」页，点击 **刷新列表**
+5. 勾选要下载的视频，点击 **下载选中**
+6. 在「下载任务」页查看实时进度
+
+### 如何获取 App ID 和 Product ID
+
+从课程链接中提取：
 
 ```
-xiaoetong-video-downloader/
-├── src/xiaoet_downloader/         # 主要源代码
-│   ├── models/                    # 数据模型
-│   │   ├── config.py              # 配置模型
-│   │   └── video.py               # 视频模型
-│   ├── api/                       # API客户端
-│   │   └── client.py              # 小鹅通API客户端
-│   ├── core/                      # 核心功能
-│   │   ├── downloader.py          # 视频下载器
-│   │   ├── transcoder.py          # 视频转码器
-│   │   └── manager.py             # 下载管理器
-│   ├── utils/                     # 工具类
-│   │   ├── file_utils.py          # 文件工具
-│   │   └── logger.py              # 日志工具
-│   └── __init__.py                # 包初始化
-├── tests/                         # 测试文件
-├── scripts/                       # 脚本文件
-├── main.py                        # 主程序入口
-├── config.json.example            # 配置文件示例
-├── requirements.txt               # 依赖列表
-└── README.md                      # 说明文档
+https://appuab59i5o3529.h5.xet.citv.cn/p/course/column/p_693bd2bfe4b0694c5b61a406
+       ^^^^^^^^^^^^^^^^                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       App ID                                            Product ID
 ```
 
-## 🚀 快速开始
+## 命令行使用
 
-### 1. 环境准备
-
-#### 安装Python依赖
-
-# 自动安装（推荐）
 ```bash
-python scripts/setup.py
-```
-
-# 或手动安装
+# 安装依赖
 pip install -r requirements.txt
-```
 
-#### 安装ffmpeg
-```bash
-# macOS
-brew install ffmpeg
-
-# Ubuntu/Debian
-sudo apt install ffmpeg
-
-# Windows
-# 从 https://ffmpeg.org/download.html 下载并安装
-```
-
-### 2. 配置设置
-
-复制配置文件模板并填入你的信息：
-```bash
+# 复制配置文件并填写
 cp config.json.example config.json
-```
 
-编辑 `config.json`：
-```json
-{
-  "app_id": "你的app_id",
-  "cookie": "你的cookie",
-  "product_id": "你的product_id",
-  "download_dir": "download",
-  "max_workers": 10
-}
-```
-
-#### 配置项说明
-| 字段         | 说明              | 获取方式                                                                                                                                              |
-|------------|-----------------|---------------------------------------------------------------------------------------------------------------------------------------------------|
-| host       | 小鹅通web端api的host | 所见即所得，例如xet.citv.cn或h5.xiaoeknow.com                                                                                                              |
-| cookie     | 小鹅通web端的Cookie  | web端登录后浏览器检查元素即可获取到Cookie                                                                                                                         |
-| app_id     | 店铺唯一标识          | 课程链接url中获取，示例: 课程链接https://appisb9y2un7034.xet.citv.cn/p/course/column/p_608baa19e4b071a81eb6ebbc?xxxxxxx 中的appisb9y2un7034即是app_id               |
-| product_id | 课程唯一标识          | 课程链接url中获取，示例: 课程链接https://appisb9y2un7034.xet.citv.cn/p/course/column/p_608baa19e4b071a81eb6ebbc?xxxxxx 中的p_608baa19e4b071a81eb6ebbc即是product_id |
-
-
-### 3. 使用方法
-
-#### 基本用法
-```bash
 # 交互式下载（推荐）
 python main.py --interactive
 
-# 列出所有课程视频
+# 列出所有视频
 python main.py --list
 
 # 下载整个课程
@@ -124,166 +87,80 @@ python main.py --single v_123456789
 
 # 检查环境
 python main.py --check
-
-# 显示帮助
-python main.py --help
 ```
 
-#### 高级选项
-```bash
-# 使用自定义配置文件
-python main.py --config my_config.json
+### 配置说明
 
-# 交互式下载时忽略缓存
-python main.py --interactive --no-cache
+| 字段 | 说明 | 默认值 |
+|------|------|--------|
+| `app_id` | 店铺标识，从课程链接获取 | - |
+| `cookie` | 小鹅通 Cookie（桌面端可自动获取） | - |
+| `product_id` | 课程标识，从课程链接获取 | - |
+| `download_dir` | 下载目录 | `download` |
+| `max_workers` | 并发数 | `5` |
 
-# 只下载不转码
-python main.py --interactive --no-transcode
+## 项目结构
 
-# 显示详细日志
-python main.py --verbose
+```
+xiaoetong-video-downloader/
+├── gui/                          # Tauri 桌面端
+│   ├── src/                      # 前端 (HTML/CSS/JS)
+│   └── src-tauri/                # Tauri 后端 (Rust)
+├── backend/                      # FastAPI 后端服务
+│   └── server.py
+├── src/xiaoet_downloader/        # Python 核心库
+│   ├── api/client.py             # 小鹅通 API 客户端
+│   ├── core/
+│   │   ├── downloader.py         # M3U8 视频下载器
+│   │   ├── transcoder.py         # FFmpeg 转码器
+│   │   └── manager.py            # 下载管理器
+│   ├── models/                   # 数据模型
+│   └── utils/                    # 工具类
+├── main.py                       # CLI 入口
+├── config.json.example           # 配置模板
+└── requirements.txt
 ```
 
-#### 交互式下载说明
-
-交互式模式支持灵活的选择方式：
-
-```bash
-# 单个视频
-请输入: 1
-
-# 多个视频（用逗号分隔）
-请输入: 1,3,5,7
-
-# 范围选择
-请输入: 1-10
-
-# 混合选择
-请输入: 1,3-5,8,10-15
-
-# 下载全部
-请输入: all 或 *
-
-# 取消
-请输入: q 或 quit
-```
-
-## 📋 配置说明
-
-| 字段 | 说明 | 获取方式 | 默认值 |
-|------|------|----------|--------|
-| app_id | 店铺唯一标识 | 课程链接URL中获取，如 `https://appisb9y2un7034.xet.citv.cn/...` 中的 `appisb9y2un7034` | - |
-| cookie | 小鹅通web端的Cookie | 浏览器开发者工具中获取 | - |
-| product_id | 课程唯一标识 | 课程链接URL中获取，如 `https://...xet.citv.cn/p/course/column/p_608baa19e4b071a81eb6ebbc` 中的 `p_608baa19e4b071a81eb6ebbc` | - |
-| download_dir | 下载目录 | 可选，自定义下载目录路径 | `download` |
-| max_workers | 最大并发下载数 | 可选，建议 5-20，根据网络环境调整 | `5` |
-
-## 🔧 开发指南
-
-### 运行测试
-```bash
-# 运行所有测试
-python -m pytest tests/
-
-# 运行特定测试
-python -m pytest tests/test_config.py
-```
-
-### 代码结构说明
-
-- **models**: 数据模型，定义配置、视频资源等数据结构
-- **api**: API客户端，处理与小鹅通服务器的通信
-- **core**: 核心功能，包括下载器、转码器和管理器
-- **utils**: 工具类，提供文件处理、日志等通用功能
-
-### 扩展功能
-
-要添加新功能，请遵循以下模式：
-
-1. 在相应的模块中添加新类或方法
-2. 更新相关的数据模型
-3. 添加相应的测试用例
-4. 更新文档
-
-## 🐛 故障排除
-
-### 常见问题
-
-1. **ffmpeg未找到**
-   ```
-   解决方案: 确保ffmpeg已安装并在PATH中
-   ```
-
-2. **配置文件错误**
-   ```
-   解决方案: 检查config.json格式是否正确，参考config.json.example
-   ```
-
-3. **网络连接问题**
-   ```
-   解决方案: 检查网络连接，确保可以访问小鹅通服务器
-   ```
-
-4. **Cookie过期**
-   ```
-   解决方案: 重新获取Cookie并更新配置文件
-   ```
-
-5. **加密视频合并失败 (httpproxy错误)**
-   ```
-   问题: ffmpeg合并视频时出现 "Protocol 'httpproxy' not on whitelist" 错误
-   原因: 系统配置了HTTP代理，ffmpeg无法通过代理访问加密密钥
-   
-   解决方案: 运行修复脚本下载密钥到本地
-   make fix
-   
-   或者手动运行:
-   python scripts/fix_encrypted_videos.py
-   
-   该脚本会：
-   - 下载加密密钥文件到本地
-   - 更新m3u8文件使用本地密钥
-   - 之后ffmpeg就不需要访问网络了
-   ```
-
-### 日志查看
-
-程序运行时会在 `logs/` 目录下生成日志文件，可以查看详细的运行信息：
+## 从源码构建桌面端
 
 ```bash
-# 查看今天的日志
-cat logs/xiaoet_$(date +%Y%m%d).log
+# 前提：安装 Node.js、Rust、Python 3.10+
 
-# 实时查看日志
-tail -f logs/xiaoet_$(date +%Y%m%d).log
+# 1. 安装 Python 依赖
+python -m venv .venv
+source .venv/bin/activate
+PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 pip install -r requirements.txt
+
+# 2. 安装前端依赖
+cd gui && npm install
+
+# 3. 开发模式运行
+npm run tauri dev
+
+# 4. 构建发布版本
+npm run tauri build
 ```
 
-## 📄 更新日志
+## 常见问题
 
-### v2.0.0 (2025-8-8)
-- 🏗️ 完全重构，采用工程化架构
-- 🛡️ 增强错误处理和重试机制
-- 📊 添加详细的进度反馈
-- 🔧 改进配置管理
-- 📝 添加完整的日志系统
-- 🧪 添加单元测试
-- 🎯 提供友好的命令行界面
+**Q: Cookie 自动获取失败？**
+确保 Chrome 浏览器已登录小鹅通，且 Chrome 已完全关闭（macOS 上需要退出 Chrome，不只是关闭窗口）。
 
-### v1.0.0
-- 基础功能实现
-- 支持视频下载和转码
+**Q: ffmpeg 未找到？**
+安装 ffmpeg 并确保在 PATH 中：`brew install ffmpeg`
 
-## 📜 许可证
+**Q: 合并视频时 httpproxy 错误？**
+运行 `python scripts/fix_encrypted_videos.py` 将加密密钥下载到本地。
 
-本项目仅供学习和个人使用，请勿用于商业用途。
+**Q: macOS 提示无法打开？**
+系统设置 → 隐私与安全性 → 点击"仍要打开"。
 
-## 🤝 贡献
+## 致谢
 
-欢迎提交Issue和Pull Request来改进这个项目。
+- [xiaoetong-video-downloader](https://github.com/miaoyc666/xiaoetong-video-downloader) — 原始项目
+- [Tauri](https://tauri.app/) — 桌面端框架
+- [rookiepy](https://github.com/thewh1teagle/rookie) — 浏览器 Cookie 读取
 
-## ⚠️ 免责声明
+## 许可证
 
-本工具仅用于下载用户已购买的课程内容，请遵守相关法律法规和平台使用条款。
-=======
-- [xiaoet](https://github.com/Yxnt/xiaoet)
-- [xiaoetong-video-downloader](https://github.com/jiji262/xiaoetong-video-downloader)
+本项目仅供学习和个人使用。
