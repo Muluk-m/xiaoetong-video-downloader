@@ -8,128 +8,180 @@
 </head>
 <body>
   <div id="app">
-    <!-- 顶部标题栏 -->
-    <header class="header">
-      <h1>小鹅通视频下载器</h1>
-      <div class="header-actions">
-        <span id="server-status" class="status-badge status-connecting">后端连接中...</span>
+    <!-- 左侧导航栏 -->
+    <aside class="rail">
+      <div class="rail-top">
+        <div class="brand">
+          <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M6 4v16l10-8z"/>
+            <path d="M18 13v5m0 0l-2.5-2.5M18 18l2.5-2.5"/>
+          </svg>
+        </div>
+        <nav class="rail-nav">
+          <button class="rail-btn active" data-tab="config" title="配置">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg>
+            <span>配置</span>
+          </button>
+          <button class="rail-btn" data-tab="videos" title="视频">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6zm12.553-1.106A1 1 0 0014 5.882v6.236a1 1 0 001.447.894l4-2a1 1 0 000-1.788l-4-2.118z"/></svg>
+            <span>视频</span>
+          </button>
+          <button class="rail-btn" data-tab="download" title="下载">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+            <span>下载</span>
+          </button>
+        </nav>
       </div>
-    </header>
+      <div class="rail-bottom">
+        <div id="server-status" class="conn-dot conn-connecting" title="后端连接中"></div>
+      </div>
+    </aside>
 
-    <!-- 标签页导航 -->
-    <nav class="tabs">
-      <button class="tab active" data-tab="config">配置</button>
-      <button class="tab" data-tab="videos">视频列表</button>
-      <button class="tab" data-tab="download">下载任务</button>
-    </nav>
+    <!-- 主内容区 -->
+    <main class="content">
 
-    <!-- ====== 配置页 ====== -->
-    <div class="tab-content active" id="tab-config">
-      <div class="card">
-        <h2>Cookie 设置</h2>
-        <div class="form-row">
-          <label>Cookie</label>
-          <div class="input-group">
-            <textarea id="input-cookie" rows="3" placeholder="粘贴 Cookie 或点击右侧按钮自动获取"></textarea>
-            <button id="btn-auto-cookie" class="btn btn-primary" title="从 Chrome 自动读取">自动获取</button>
-          </div>
-          <p id="cookie-hint" class="hint"></p>
-        </div>
-      </div>
+      <!-- ====== 配置 ====== -->
+      <section class="panel active" id="tab-config">
+        <header class="panel-header">
+          <h1>配置</h1>
+          <p class="panel-sub">连接到你的小鹅通课程</p>
+        </header>
 
-      <div class="card">
-        <h2>课程配置</h2>
-        <div class="form-row">
-          <label>App ID</label>
-          <input id="input-app-id" type="text" placeholder="如: appuab59i5o3529" />
+        <div class="section">
+          <div class="section-label">认证</div>
+          <div class="field">
+            <div class="field-head">
+              <label for="input-cookie">Cookie</label>
+              <button id="btn-auto-cookie" class="link-btn">从 Chrome 读取</button>
+            </div>
+            <textarea id="input-cookie" rows="2" placeholder="自动获取或手动粘贴 Cookie"></textarea>
+            <p id="cookie-hint" class="field-hint"></p>
+          </div>
         </div>
-        <div class="form-row">
-          <label>Product ID (课程ID)</label>
-          <input id="input-product-id" type="text" placeholder="如: p_693bd2bfe4b0694c5b61a406" />
-        </div>
-        <div class="form-row">
-          <label>下载目录</label>
-          <input id="input-download-dir" type="text" placeholder="download" />
-        </div>
-        <div class="form-row">
-          <label>并发数</label>
-          <input id="input-max-workers" type="number" min="1" max="10" value="5" />
-        </div>
-      </div>
 
-      <div class="actions">
-        <button id="btn-save-config" class="btn btn-primary">保存配置</button>
-        <button id="btn-check-env" class="btn btn-outline">检查环境</button>
-      </div>
-      <p id="config-message" class="message"></p>
-    </div>
+        <div class="section">
+          <div class="section-label">课程</div>
+          <div class="field-row">
+            <div class="field">
+              <label for="input-app-id">App ID</label>
+              <input id="input-app-id" type="text" placeholder="appuab59i5o3529" />
+            </div>
+            <div class="field">
+              <label for="input-product-id">Product ID</label>
+              <input id="input-product-id" type="text" placeholder="p_693bd2bfe4b0694c5b61a406" />
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="input-download-dir">保存目录</label>
+              <input id="input-download-dir" type="text" placeholder="download" />
+            </div>
+            <div class="field field--narrow">
+              <label for="input-max-workers">并发</label>
+              <input id="input-max-workers" type="number" min="1" max="10" value="5" />
+            </div>
+          </div>
+        </div>
 
-    <!-- ====== 视频列表页 ====== -->
-    <div class="tab-content" id="tab-videos">
-      <div class="card">
-        <div class="toolbar">
-          <button id="btn-refresh-videos" class="btn btn-primary">刷新列表</button>
-          <span id="video-count" class="hint"></span>
-          <div class="toolbar-right">
-            <button id="btn-select-all" class="btn btn-sm">全选</button>
-            <button id="btn-deselect-all" class="btn btn-sm">取消全选</button>
-            <button id="btn-download-selected" class="btn btn-primary btn-sm">下载选中</button>
-          </div>
+        <div class="panel-actions">
+          <button id="btn-save-config" class="action-btn action-btn--primary">保存</button>
+          <button id="btn-check-env" class="action-btn">检查环境</button>
         </div>
-      </div>
-      <div id="video-list" class="video-list">
-        <div class="empty-state">点击"刷新列表"获取课程视频</div>
-      </div>
-    </div>
+        <div id="config-message" class="message"></div>
+      </section>
 
-    <!-- ====== 下载任务页 ====== -->
-    <div class="tab-content" id="tab-download">
-      <div class="card">
-        <div class="toolbar">
-          <h2 style="margin:0">下载进度</h2>
-          <div class="toolbar-right">
-            <button id="btn-cancel-download" class="btn btn-danger btn-sm" style="display:none">取消下载</button>
+      <!-- ====== 视频列表 ====== -->
+      <section class="panel" id="tab-videos">
+        <header class="panel-header">
+          <div>
+            <h1>视频列表</h1>
+            <p class="panel-sub" id="video-count">加载课程后显示视频</p>
+          </div>
+          <div class="panel-header-actions">
+            <button id="btn-refresh-videos" class="action-btn action-btn--primary">加载课程</button>
+          </div>
+        </header>
+
+        <div class="list-toolbar">
+          <label class="select-all-label">
+            <input type="checkbox" id="cb-select-all" />
+            <span>全选</span>
+          </label>
+          <button id="btn-download-selected" class="action-btn action-btn--primary action-btn--sm" disabled>下载选中</button>
+        </div>
+
+        <div id="video-list" class="video-list">
+          <div class="empty">
+            <svg class="empty-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="6" y="10" width="36" height="28" rx="4"/>
+              <path d="M20 20l8 6-8 6z"/>
+            </svg>
+            <p>加载课程以查看视频列表</p>
           </div>
         </div>
-        <div id="download-overview" class="download-overview">
-          <div class="stat">
-            <span class="stat-label">状态</span>
-            <span id="dl-status" class="stat-value">空闲</span>
+      </section>
+
+      <!-- ====== 下载 ====== -->
+      <section class="panel" id="tab-download">
+        <header class="panel-header">
+          <div>
+            <h1>下载</h1>
+            <p class="panel-sub" id="dl-status-text">空闲</p>
           </div>
-          <div class="stat">
-            <span class="stat-label">总进度</span>
-            <span id="dl-progress" class="stat-value">-</span>
+          <div class="panel-header-actions">
+            <button id="btn-cancel-download" class="action-btn action-btn--danger action-btn--sm" style="display:none">取消</button>
           </div>
-          <div class="stat">
-            <span class="stat-label">当前视频</span>
-            <span id="dl-current" class="stat-value">-</span>
+        </header>
+
+        <!-- 进度区域 -->
+        <div id="dl-progress-area" class="dl-area" style="display:none">
+          <div class="dl-stats">
+            <div class="dl-stat">
+              <span class="dl-stat-val" id="dl-progress">0/0</span>
+              <span class="dl-stat-key">视频</span>
+            </div>
+            <div class="dl-stat">
+              <span class="dl-stat-val" id="dl-segments">-</span>
+              <span class="dl-stat-key">分片</span>
+            </div>
+            <div class="dl-stat dl-stat--wide">
+              <span class="dl-stat-val dl-stat-val--title" id="dl-current">-</span>
+              <span class="dl-stat-key">当前</span>
+            </div>
           </div>
-          <div class="stat">
-            <span class="stat-label">分片进度</span>
-            <span id="dl-segments" class="stat-value">-</span>
+
+          <!-- 总进度 -->
+          <div class="dl-track">
+            <div class="dl-track-label">总进度</div>
+            <div class="dl-track-bar"><div id="dl-bar" class="dl-track-fill"></div></div>
+            <div class="dl-track-pct" id="dl-bar-pct">0%</div>
+          </div>
+          <!-- 分片进度 -->
+          <div class="dl-track" id="seg-track">
+            <div class="dl-track-label">分片</div>
+            <div class="dl-track-bar"><div id="seg-bar" class="dl-track-fill dl-track-fill--seg"></div></div>
+            <div class="dl-track-pct" id="seg-bar-pct">0%</div>
           </div>
         </div>
-        <!-- 总进度条 -->
-        <div id="download-progress-bar" class="progress-bar-container" style="display:none">
-          <div id="dl-bar" class="progress-bar"></div>
+
+        <!-- 日志 -->
+        <div class="dl-log-section">
+          <div class="dl-log-head">
+            <span>日志</span>
+          </div>
+          <div id="download-log" class="dl-log">
+            <p class="dl-log-empty">等待任务开始</p>
+          </div>
         </div>
-        <!-- 分片进度条 -->
-        <div id="segment-progress-bar" class="progress-bar-container" style="display:none;margin-top:6px">
-          <div id="seg-bar" class="progress-bar progress-bar-segments"></div>
+
+        <!-- 结果 -->
+        <div id="download-results" class="dl-results" style="display:none">
+          <div class="dl-results-head">结果</div>
+          <div id="results-content"></div>
         </div>
-        <div id="segment-pct" class="hint" style="text-align:right;margin-top:2px;display:none"></div>
-      </div>
-      <div class="card">
-        <h3>日志</h3>
-        <div id="download-log" class="log-area">
-          <div class="empty-state">暂无下载任务</div>
-        </div>
-      </div>
-      <div id="download-results" class="card" style="display:none">
-        <h3>下载结果</h3>
-        <div id="results-content"></div>
-      </div>
-    </div>
+      </section>
+
+    </main>
   </div>
 
   <script src="main.js"></script>
