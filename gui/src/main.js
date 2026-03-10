@@ -252,8 +252,8 @@ function renderVideoList(list) {
           <div class="vi-title" title="${title}">${title}</div>
           <div class="vi-meta">${date}</div>
         </div>
-        <div class="vi-progress">
-          ${progress}%
+        <div class="vi-progress" title="学习进度">
+          已学 ${progress}%
           <div class="vi-bar"><div class="vi-bar-fill" style="width:${progress}%"></div></div>
         </div>
       </div>`;
