@@ -74,6 +74,7 @@ body {
   align-items: center;
   padding: 16px 0 20px;
   -webkit-app-region: drag;
+  overflow: hidden;
 }
 
 .rail-top { display: flex; flex-direction: column; align-items: center; gap: 28px; }
@@ -110,7 +111,7 @@ body {
   transition: color 0.15s, background 0.15s;
 }
 
-.rail-btn svg { width: 20px; height: 20px; }
+.rail-btn svg { width: 20px; height: 20px; flex-shrink: 0; }
 .rail-btn span { font-size: 10px; font-weight: 500; letter-spacing: 0.02em; }
 
 .rail-btn:hover { color: var(--rail-active); background: rgba(255,255,255,0.06); }
@@ -181,20 +182,148 @@ body {
   flex-shrink: 0;
 }
 
-/* --- Sections --- */
-.section {
+/* ============ Setup Steps ============ */
+.setup-step {
   margin-bottom: 28px;
+  padding-bottom: 28px;
+  border-bottom: 1px solid var(--border);
 }
 
-.section-label {
-  font-size: 11px;
+.setup-step:last-of-type {
+  border-bottom: none;
+}
+
+.step-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.step-num {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--bg-inset);
+  color: var(--text-2);
+  font-size: 13px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.step-num.done {
+  background: var(--green);
+  color: #fff;
+}
+
+.step-text { flex: 1; }
+
+.step-title {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.step-desc {
+  font-size: 12px;
+  color: var(--text-2);
+  margin-top: 2px;
+}
+
+.step-body {
+  padding-left: 42px;
+}
+
+.step-hint {
+  font-size: 12px;
   color: var(--text-3);
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--border);
+  margin-top: 8px;
+  min-height: 18px;
+}
+
+/* --- Manual Cookie Toggle --- */
+.manual-toggle {
+  margin-top: 12px;
+}
+
+.manual-toggle summary {
+  font-size: 12px;
+  color: var(--text-3);
+  cursor: pointer;
+  user-select: none;
+}
+
+.manual-toggle summary:hover {
+  color: var(--text-2);
+}
+
+.manual-toggle textarea {
+  margin-top: 8px;
+}
+
+/* --- URL Input Group --- */
+.url-input-group {
+  display: flex;
+  gap: 8px;
+}
+
+.url-input-group input {
+  flex: 1;
+}
+
+/* --- Parsed Info --- */
+.parsed-info {
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.parsed-tag {
+  font-size: 12px;
+  color: var(--text-2);
+  background: var(--bg-inset);
+  padding: 4px 10px;
+  border-radius: 4px;
+}
+
+.parsed-tag strong {
+  color: var(--text);
+  font-weight: 500;
+}
+
+/* --- Setup Actions --- */
+.setup-actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+/* --- Advanced Section --- */
+.advanced-section {
+  margin-top: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+}
+
+.advanced-section summary {
+  font-size: 12px;
+  color: var(--text-3);
+  cursor: pointer;
+  user-select: none;
+  font-weight: 500;
+}
+
+.advanced-section summary:hover {
+  color: var(--text-2);
+}
+
+.advanced-body {
+  margin-top: 14px;
 }
 
 /* --- Fields --- */
@@ -208,28 +337,13 @@ body {
   margin-bottom: 5px;
 }
 
-.field-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 5px;
-}
-
-.field-head label { margin-bottom: 0; }
-
-.field-hint {
-  font-size: 11px;
-  color: var(--text-3);
-  margin-top: 4px;
-}
-
 .field-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
 
-.field--narrow { max-width: 100px; }
+.field--narrow { max-width: 120px; }
 
 input[type="text"],
 input[type="number"],
@@ -262,6 +376,9 @@ textarea { font-family: "SF Mono", "Menlo", monospace; font-size: 11.5px; line-h
   color: var(--text);
   cursor: pointer;
   transition: all 0.12s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .action-btn:hover { border-color: var(--text-3); }
@@ -286,23 +403,15 @@ textarea { font-family: "SF Mono", "Menlo", monospace; font-size: 11.5px; line-h
 
 .action-btn--sm { padding: 5px 14px; font-size: 12px; }
 
-.link-btn {
-  background: none;
-  border: none;
-  color: var(--accent);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  padding: 0;
-  text-decoration: underline;
-  text-underline-offset: 2px;
+.action-btn--lg {
+  padding: 10px 24px;
+  font-size: 14px;
 }
-.link-btn:hover { color: var(--accent-h); }
 
-.panel-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 4px;
+.action-btn--lg svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
 }
 
 /* --- Messages --- */
@@ -421,7 +530,7 @@ textarea { font-family: "SF Mono", "Menlo", monospace; font-size: 11.5px; line-h
 }
 
 .empty-icon { width: 40px; height: 40px; opacity: 0.5; }
-.empty p { font-size: 13px; }
+.empty p { font-size: 13px; text-align: center; line-height: 1.6; }
 
 /* ============ Download ============ */
 .dl-area {

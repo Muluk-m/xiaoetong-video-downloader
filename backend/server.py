@@ -9,6 +9,7 @@
 import asyncio
 import json
 import os
+import re
 import sys
 import threading
 import uuid
@@ -63,10 +64,40 @@ class ConfigUpdate(BaseModel):
     max_workers: int = 5
 
 
+class ParseUrlRequest(BaseModel):
+    url: str
+
+
 class DownloadRequest(BaseModel):
     resource_ids: list[str] = []  # 为空则下载全部
     nocache: bool = False
     auto_transcode: bool = True
+
+
+# ============ URL 解析 ============
+
+
+@app.post("/api/parse-url")
+async def parse_url(req: ParseUrlRequest):
+    """从小鹅通课程 URL 中提取 app_id 和 product_id"""
+    url = req.url.strip()
+
+    # Extract app_id from subdomain, e.g. "appuab59i5o3529" from
+    # "https://appuab59i5o3529.h5.xiaoeknow.com/..."
+    app_id_match = re.search(r"https?://(app[a-zA-Z0-9]+)\.h5\.", url)
+    if not app_id_match:
+        return {"success": False, "message": "无法从 URL 中解析 app_id，请确认链接格式正确"}
+
+    app_id = app_id_match.group(1)
+
+    # Extract product_id from path, e.g. "p_693bd2bfe4b0694c5b61a406"
+    product_id_match = re.search(r"/(p_[a-zA-Z0-9]+)", url)
+    if not product_id_match:
+        return {"success": False, "message": "无法从 URL 中解析 product_id，请确认链接包含课程/专栏 ID"}
+
+    product_id = product_id_match.group(1)
+
+    return {"success": True, "app_id": app_id, "product_id": product_id}
 
 
 # ============ Cookie 相关 ============

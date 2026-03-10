@@ -23,6 +23,12 @@ function showMessage(el, text, type = "info") {
   setTimeout(() => el.classList.remove("show"), 4000);
 }
 
+function setStepDone(stepId) {
+  const dot = $(`#${stepId}`);
+  dot.classList.add("done");
+  dot.textContent = "\u2713";
+}
+
 // ============ Navigation ============
 $$(".rail-btn").forEach(btn => {
   btn.addEventListener("click", () => {
@@ -67,24 +73,40 @@ async function loadConfig() {
       $("#input-product-id").value = c.product_id || "";
       $("#input-download-dir").value = c.download_dir || "download";
       $("#input-max-workers").value = c.max_workers || 5;
+
+      // Show parsed info if we have saved values
+      if (c.app_id && c.product_id) {
+        $("#parsed-app-id").textContent = c.app_id;
+        $("#parsed-product-id").textContent = c.product_id;
+        $("#parsed-info").style.display = "flex";
+        setStepDone("step2-dot");
+      }
+
+      if (c.cookie) {
+        setStepDone("step1-dot");
+        $("#cookie-hint").textContent = "已有登录信息";
+        $("#cookie-hint").style.color = "var(--green)";
+      }
     }
   } catch {}
 }
 
+// ============ Step 1: Auto Cookie ============
 $("#btn-auto-cookie").addEventListener("click", async () => {
   const btn = $("#btn-auto-cookie");
   const hint = $("#cookie-hint");
   btn.disabled = true;
-  btn.textContent = "读取中...";
+  btn.innerHTML = '<span class="spinner"></span>正在读取浏览器登录信息...';
 
   try {
     const data = await api("/api/cookies");
     if (data.success) {
       $("#input-cookie").value = data.cookie;
-      hint.textContent = data.message;
+      hint.textContent = "登录信息同步成功";
       hint.style.color = "var(--green)";
+      setStepDone("step1-dot");
     } else {
-      hint.textContent = data.message;
+      hint.textContent = "未找到登录信息，请先用 Chrome 打开小鹅通并登录";
       hint.style.color = "var(--red)";
     }
   } catch (e) {
@@ -92,10 +114,51 @@ $("#btn-auto-cookie").addEventListener("click", async () => {
     hint.style.color = "var(--red)";
   } finally {
     btn.disabled = false;
-    btn.textContent = "从 Chrome 读取";
+    btn.innerHTML = '<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>一键同步 Chrome 登录';
   }
 });
 
+// ============ Step 2: Parse URL ============
+$("#btn-parse-url").addEventListener("click", parseUrl);
+$("#input-course-url").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") parseUrl();
+});
+
+async function parseUrl() {
+  const url = $("#input-course-url").value.trim();
+  const hint = $("#url-hint");
+  if (!url) {
+    hint.textContent = "请粘贴课程链接";
+    hint.style.color = "var(--red)";
+    return;
+  }
+
+  try {
+    const data = await api("/api/parse-url", {
+      method: "POST",
+      body: JSON.stringify({ url }),
+    });
+
+    if (data.success) {
+      $("#input-app-id").value = data.app_id;
+      $("#input-product-id").value = data.product_id;
+      $("#parsed-app-id").textContent = data.app_id;
+      $("#parsed-product-id").textContent = data.product_id;
+      $("#parsed-info").style.display = "flex";
+      hint.textContent = "解析成功";
+      hint.style.color = "var(--green)";
+      setStepDone("step2-dot");
+    } else {
+      hint.textContent = data.message || "无法识别链接，请确认是小鹅通课程页面的链接";
+      hint.style.color = "var(--red)";
+    }
+  } catch (e) {
+    hint.textContent = "解析失败: " + e.message;
+    hint.style.color = "var(--red)";
+  }
+}
+
+// ============ Save Config ============
 $("#btn-save-config").addEventListener("click", async () => {
   const btn = $("#btn-save-config");
   const msg = $("#config-message");
@@ -110,13 +173,17 @@ $("#btn-save-config").addEventListener("click", async () => {
       max_workers: parseInt($("#input-max-workers").value) || 5,
     };
 
-    if (!config.cookie || !config.app_id || !config.product_id) {
-      showMessage(msg, "请填写 Cookie、App ID 和 Product ID", "error");
+    if (!config.cookie) {
+      showMessage(msg, "请先完成第一步：同步登录状态", "error");
+      return;
+    }
+    if (!config.app_id || !config.product_id) {
+      showMessage(msg, "请先完成第二步：填写课程链接", "error");
       return;
     }
 
     const data = await api("/api/config", { method: "POST", body: JSON.stringify(config) });
-    showMessage(msg, data.success ? "已保存" : "保存失败", data.success ? "success" : "error");
+    showMessage(msg, data.success ? "设置已保存，可以去「课程」页面加载视频了" : "保存失败", data.success ? "success" : "error");
   } catch (e) {
     showMessage(msg, "保存失败: " + e.message, "error");
   } finally {
@@ -124,6 +191,7 @@ $("#btn-save-config").addEventListener("click", async () => {
   }
 });
 
+// ============ Check Env ============
 $("#btn-check-env").addEventListener("click", async () => {
   const btn = $("#btn-check-env");
   const msg = $("#config-message");
@@ -152,9 +220,9 @@ $("#btn-refresh-videos").addEventListener("click", async () => {
     if (data.success) {
       videos = data.videos;
       renderVideoList(videos);
-      $("#video-count").textContent = `${videos.length} 个视频`;
+      $("#video-count").textContent = `共 ${videos.length} 个视频`;
     } else {
-      $("#video-list").innerHTML = `<div class="empty"><p>${data.message || "获取失败"}</p></div>`;
+      $("#video-list").innerHTML = `<div class="empty"><p>${data.message || "获取失败，请检查设置是否正确"}</p></div>`;
     }
   } catch (e) {
     $("#video-list").innerHTML = `<div class="empty"><p>获取失败: ${e.message}</p></div>`;
@@ -167,7 +235,7 @@ $("#btn-refresh-videos").addEventListener("click", async () => {
 function renderVideoList(list) {
   const container = $("#video-list");
   if (!list.length) {
-    container.innerHTML = '<div class="empty"><p>没有找到视频</p></div>';
+    container.innerHTML = '<div class="empty"><p>该课程下没有找到视频</p></div>';
     return;
   }
 
@@ -191,7 +259,6 @@ function renderVideoList(list) {
       </div>`;
   }).join("");
 
-  // Click row to toggle
   container.querySelectorAll(".video-item").forEach(item => {
     item.addEventListener("click", (e) => {
       if (e.target.type === "checkbox") { updateSelectedCount(); return; }
@@ -273,7 +340,7 @@ function startPolling(taskId) {
     try {
       const task = await api(`/api/download/status/${taskId}`);
 
-      const statusMap = { running: "下载中", completed: "已完成", failed: "失败", cancelled: "已取消" };
+      const statusMap = { running: "下载中", completed: "全部完成", failed: "下载失败", cancelled: "已取消" };
       $("#dl-status-text").textContent = statusMap[task.status] || task.status;
 
       // Video-level progress
