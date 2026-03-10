@@ -96,6 +96,24 @@
           </div>
         </div>
 
+        <!-- 第三步：保存目录 -->
+        <div class="setup-step">
+          <div class="step-header">
+            <span class="step-num">3</span>
+            <div class="step-text">
+              <div class="step-title">选择保存位置</div>
+              <div class="step-desc">下载的视频文件将保存到这个目录</div>
+            </div>
+          </div>
+          <div class="step-body">
+            <div class="url-input-group">
+              <input id="input-download-dir" type="text" placeholder="download" />
+              <button id="btn-browse-dir" class="action-btn">浏览</button>
+            </div>
+            <p id="dir-hint" class="step-hint"></p>
+          </div>
+        </div>
+
         <!-- 保存按钮 -->
         <div class="setup-actions">
           <button id="btn-save-config" class="action-btn action-btn--primary action-btn--lg">保存设置</button>
@@ -107,15 +125,9 @@
         <details class="advanced-section">
           <summary>高级设置</summary>
           <div class="advanced-body">
-            <div class="field-row">
-              <div class="field">
-                <label for="input-download-dir">保存目录</label>
-                <input id="input-download-dir" type="text" placeholder="download" />
-              </div>
-              <div class="field field--narrow">
-                <label for="input-max-workers">并发线程数</label>
-                <input id="input-max-workers" type="number" min="1" max="10" value="5" />
-              </div>
+            <div class="field">
+              <label for="input-max-workers">并发线程数</label>
+              <input id="input-max-workers" type="number" min="1" max="10" value="5" style="max-width:120px" />
             </div>
           </div>
         </details>

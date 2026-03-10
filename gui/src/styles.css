@@ -457,7 +457,7 @@ textarea { font-family: "SF Mono", "Menlo", monospace; font-size: 11.5px; line-h
 
 .video-item {
   display: grid;
-  grid-template-columns: 20px 32px 1fr 64px;
+  grid-template-columns: 20px 32px 1fr auto;
   gap: 10px;
   align-items: center;
   padding: 11px 4px;
@@ -498,25 +498,41 @@ textarea { font-family: "SF Mono", "Menlo", monospace; font-size: 11.5px; line-h
   margin-top: 1px;
 }
 
-.vi-progress {
+.vi-status {
   text-align: right;
+  flex-shrink: 0;
+}
+
+.dl-badge {
+  display: inline-block;
   font-size: 11px;
-  color: var(--text-3);
-  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
 }
 
-.vi-bar {
-  height: 3px;
+.dl-badge--done {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.dl-badge--none {
   background: var(--bg-inset);
-  border-radius: 1.5px;
-  overflow: hidden;
-  margin-top: 4px;
+  color: var(--text-3);
 }
 
-.vi-bar-fill {
-  height: 100%;
-  background: var(--accent);
-  border-radius: 1.5px;
+.dl-badge--partial {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.video-item--done {
+  opacity: 0.65;
+}
+
+.video-item--done:hover {
+  opacity: 1;
 }
 
 /* --- Empty --- */

@@ -158,6 +158,22 @@ async function parseUrl() {
   }
 }
 
+// ============ Browse Directory ============
+$("#btn-browse-dir").addEventListener("click", async () => {
+  const hint = $("#dir-hint");
+  try {
+    const data = await api("/api/browse-dir");
+    if (data.success) {
+      $("#input-download-dir").value = data.path;
+      hint.textContent = "已选择: " + data.path;
+      hint.style.color = "var(--green)";
+    }
+  } catch (e) {
+    hint.textContent = "选择失败: " + e.message;
+    hint.style.color = "var(--red)";
+  }
+});
+
 // ============ Save Config ============
 $("#btn-save-config").addEventListener("click", async () => {
   const btn = $("#btn-save-config");
@@ -243,18 +259,28 @@ function renderVideoList(list) {
     const title = v.resource_title || "未知标题";
     const id = v.resource_id || "";
     const date = v.start_at || "";
-    const progress = v.learn_progress || 0;
+    const dlStatus = v.dl_status || "none";
+
+    let statusHtml = "";
+    if (dlStatus === "done") {
+      statusHtml = '<span class="dl-badge dl-badge--done">已下载</span>';
+    } else if (dlStatus === "none") {
+      statusHtml = '<span class="dl-badge dl-badge--none">未下载</span>';
+    } else {
+      // partial like "3200/5857"
+      statusHtml = `<span class="dl-badge dl-badge--partial">下载中 ${dlStatus}</span>`;
+    }
+
     return `
-      <div class="video-item" data-id="${id}">
+      <div class="video-item${dlStatus === 'done' ? ' video-item--done' : ''}" data-id="${id}">
         <input type="checkbox" class="video-checkbox" value="${id}" />
         <span class="vi-index">${i + 1}</span>
         <div class="vi-info">
           <div class="vi-title" title="${title}">${title}</div>
           <div class="vi-meta">${date}</div>
         </div>
-        <div class="vi-progress" title="学习进度">
-          已学 ${progress}%
-          <div class="vi-bar"><div class="vi-bar-fill" style="width:${progress}%"></div></div>
+        <div class="vi-status">
+          ${statusHtml}
         </div>
       </div>`;
   }).join("");

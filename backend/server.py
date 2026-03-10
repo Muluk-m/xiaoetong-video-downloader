@@ -10,6 +10,7 @@ import asyncio
 import json
 import os
 import re
+import subprocess
 import sys
 import threading
 import uuid
@@ -183,9 +184,37 @@ async def list_videos():
         config = _load_config()
         manager = XiaoetDownloadManager(config)
         videos = manager.list_course_videos()
+        # 附加本地下载状态
+        dl_status = _scan_download_status(config.download_dir)
+        for v in videos:
+            rid = v.get("resource_id", "")
+            v["dl_status"] = dl_status.get(rid, "none")  # none / downloading / done
         return {"success": True, "videos": videos, "total": len(videos)}
     except Exception as e:
         return {"success": False, "message": str(e), "videos": [], "total": 0}
+
+
+# ============ 文件夹选择 ============
+
+
+@app.get("/api/browse-dir")
+async def browse_directory():
+    """打开系统文件夹选择对话框"""
+    try:
+        if sys.platform == "darwin":
+            result = subprocess.run(
+                ["osascript", "-e", 'POSIX path of (choose folder with prompt "选择视频保存目录")'],
+                capture_output=True, text=True, timeout=60
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                return {"success": True, "path": result.stdout.strip().rstrip("/")}
+            return {"success": False, "message": "未选择目录"}
+        else:
+            return {"success": False, "message": "当前系统不支持文件夹选择"}
+    except subprocess.TimeoutExpired:
+        return {"success": False, "message": "选择超时"}
+    except Exception as e:
+        return {"success": False, "message": str(e)}
 
 
 # ============ 环境检查 ============
@@ -279,6 +308,40 @@ async def cancel_download(task_id: str):
 
 
 # ============ 辅助函数 ============
+
+
+def _scan_download_status(download_dir: str) -> dict:
+    """扫描下载目录，返回每个 resource_id 的下载状态"""
+    status = {}
+    if not os.path.isdir(download_dir):
+        return status
+    for entry in os.listdir(download_dir):
+        entry_path = os.path.join(download_dir, entry)
+        if not os.path.isdir(entry_path) or not entry.startswith("v_"):
+            continue
+        meta_path = os.path.join(entry_path, "metadata.json")
+        if os.path.exists(meta_path):
+            try:
+                with open(meta_path, "r", encoding="utf-8") as f:
+                    meta = json.load(f)
+                title = meta.get("title", "")
+                # 检查是否有转码后的 mp4
+                mp4_path = os.path.join(download_dir, f"{title}.mp4")
+                if title and os.path.exists(mp4_path):
+                    status[entry] = "done"
+                elif meta.get("complete"):
+                    status[entry] = "done"
+                else:
+                    downloaded = meta.get("downloaded_segments", 0)
+                    total = meta.get("total_segments", 0)
+                    status[entry] = f"{downloaded}/{total}"
+            except Exception:
+                status[entry] = "partial"
+        else:
+            # 有目录但没有 metadata，可能正在下载
+            ts_count = len([f for f in os.listdir(entry_path) if f.endswith(".ts")])
+            status[entry] = f"0/{ts_count}" if ts_count else "partial"
+    return status
 
 
 def _load_config() -> XiaoetConfig:
