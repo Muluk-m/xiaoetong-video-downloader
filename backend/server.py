@@ -185,10 +185,23 @@ async def list_videos():
         manager = XiaoetDownloadManager(config)
         videos = manager.list_course_videos()
         # 附加本地下载状态
-        dl_status = _scan_download_status(config.download_dir)
+        dl_dir = config.download_dir
+        dl_status_by_id = _scan_download_status(dl_dir)
+        # 同时按标题匹配已有的 mp4 文件
+        mp4_titles = set()
+        if os.path.isdir(dl_dir):
+            for f in os.listdir(dl_dir):
+                if f.endswith(".mp4"):
+                    mp4_titles.add(f[:-4])  # 去掉 .mp4 后缀
         for v in videos:
             rid = v.get("resource_id", "")
-            v["dl_status"] = dl_status.get(rid, "none")  # none / downloading / done
+            title = v.get("resource_title", "")
+            if dl_status_by_id.get(rid) == "done" or title in mp4_titles:
+                v["dl_status"] = "done"
+            elif rid in dl_status_by_id:
+                v["dl_status"] = dl_status_by_id[rid]
+            else:
+                v["dl_status"] = "none"
         return {"success": True, "videos": videos, "total": len(videos)}
     except Exception as e:
         return {"success": False, "message": str(e), "videos": [], "total": 0}
