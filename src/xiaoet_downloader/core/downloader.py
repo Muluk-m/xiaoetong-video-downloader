@@ -176,15 +176,20 @@ class VideoDownloader:
                 if response.status_code == 200:
                     # 写入临时文件，下载完成后重命名
                     temp_file = ts_file + '.tmp'
+                    os.makedirs(os.path.dirname(ts_file), exist_ok=True)
                     with open(temp_file, 'wb') as f:
                         f.write(response.content)
-                    os.rename(temp_file, ts_file)
+                    # 确认 tmp 文件写入成功后再重命名
+                    if os.path.exists(temp_file):
+                        os.rename(temp_file, ts_file)
+                    else:
+                        raise OSError(f"临时文件写入后不存在: {temp_file}")
                     logger.info(f"[{current}/{total}] 下载成功: {os.path.basename(ts_file)}")
                     return True
                 else:
                     logger.warning(f"[{current}/{total}] 下载失败: HTTP {response.status_code}")
                     retry_count += 1
-            except requests.exceptions.RequestException as e:
+            except (requests.exceptions.RequestException, OSError) as e:
                 logger.warning(f"[{current}/{total}] 下载出错: {str(e)}")
                 retry_count += 1
                 if retry_count < max_retries:
