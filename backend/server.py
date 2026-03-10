@@ -285,7 +285,11 @@ def _load_config() -> XiaoetConfig:
     """加载配置"""
     if not os.path.exists(CONFIG_PATH):
         raise Exception("配置文件不存在，请先保存配置")
-    return XiaoetConfig.from_file(CONFIG_PATH)
+    config = XiaoetConfig.from_file(CONFIG_PATH)
+    # 确保 download_dir 为绝对路径（相对于项目根目录）
+    if not os.path.isabs(config.download_dir):
+        config.download_dir = str(PROJECT_ROOT / config.download_dir)
+    return config
 
 
 def _run_download(task_id: str, config: XiaoetConfig, resource_ids: list, nocache: bool, auto_transcode: bool):
