@@ -24,9 +24,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-# 添加src目录到Python路径
-PROJECT_ROOT = Path(__file__).parent.parent
-sys.path.insert(0, str(PROJECT_ROOT / "src"))
+# 检测是否在 PyInstaller 打包环境中
+if getattr(sys, 'frozen', False):
+    # PyInstaller 打包模式：使用可执行文件所在目录
+    APP_DIR = Path(sys.executable).parent
+    # 用户数据目录 (macOS: ~/Library/Application Support/com.xiaoet.downloader)
+    DATA_DIR = Path.home() / "Library" / "Application Support" / "com.xiaoet.downloader"
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+else:
+    # 开发模式：保持现有行为
+    APP_DIR = Path(__file__).parent.parent
+    DATA_DIR = APP_DIR
+    sys.path.insert(0, str(APP_DIR / "src"))
 
 from xiaoet_downloader import XiaoetConfig, XiaoetDownloadManager, logger
 from xiaoet_downloader.models.video import (
@@ -48,7 +57,7 @@ app.add_middleware(
 
 # ============ 全局状态 ============
 
-CONFIG_PATH = str(PROJECT_ROOT / "config.json")
+CONFIG_PATH = str(DATA_DIR / "config.json")
 
 # 下载任务状态跟踪
 download_tasks: Dict[str, Dict[str, Any]] = {}
@@ -362,9 +371,9 @@ def _load_config() -> XiaoetConfig:
     if not os.path.exists(CONFIG_PATH):
         raise Exception("配置文件不存在，请先保存配置")
     config = XiaoetConfig.from_file(CONFIG_PATH)
-    # 确保 download_dir 为绝对路径（相对于项目根目录）
+    # 确保 download_dir 为绝对路径（相对于数据目录）
     if not os.path.isabs(config.download_dir):
-        config.download_dir = str(PROJECT_ROOT / config.download_dir)
+        config.download_dir = str(DATA_DIR / config.download_dir)
     return config
 
 
