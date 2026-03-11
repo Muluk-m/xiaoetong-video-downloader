@@ -27,6 +27,7 @@ logs/
 # ============ Tauri / Rust ============
 gui/src-tauri/target/
 gui/src-tauri/gen/
+gui/src-tauri/binaries/
 gui/node_modules/
 
 # ============ IDE ============

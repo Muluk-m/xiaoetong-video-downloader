@@ -16,6 +16,7 @@ class VideoTranscoder:
     def __init__(self, download_dir: str):
         """初始化转码器"""
         self.download_dir = download_dir
+        self.ffmpeg_cmd = os.environ.get('FFMPEG_PATH', 'ffmpeg')
     
     def transcode_video(self, resource: VideoResource) -> DownloadResult:
         """
@@ -65,7 +66,7 @@ class VideoTranscoder:
             
             # 构建ffmpeg命令
             cmd = [
-                'ffmpeg',
+                self.ffmpeg_cmd,
                 '-protocol_whitelist', 'crypto,file,http,https,tcp,tls',
                 '-allowed_extensions', 'ALL',
                 '-i', input_file,
@@ -128,7 +129,7 @@ class VideoTranscoder:
         """检查ffmpeg是否可用"""
         try:
             result = subprocess.run(
-                ['ffmpeg', '-version'],
+                [self.ffmpeg_cmd, '-version'],
                 capture_output=True,
                 text=True,
                 timeout=5

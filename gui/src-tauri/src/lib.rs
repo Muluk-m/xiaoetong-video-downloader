@@ -28,6 +28,41 @@ fn find_project_root() -> Option<PathBuf> {
     None
 }
 
+/// 解析 bundled ffmpeg 路径
+/// 查找优先级：{exe_dir}/ffmpeg-{target_triple} → {exe_dir}/ffmpeg → 系统 "ffmpeg"
+fn resolve_ffmpeg_path() -> String {
+    let target_triple = if cfg!(target_arch = "aarch64") {
+        "aarch64-apple-darwin"
+    } else if cfg!(target_arch = "x86_64") {
+        "x86_64-apple-darwin"
+    } else {
+        ""
+    };
+
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            // 优先查找带 target triple 的版本
+            if !target_triple.is_empty() {
+                let named = exe_dir.join(format!("ffmpeg-{target_triple}"));
+                if named.exists() {
+                    println!("FFMPEG_PATH: {}", named.display());
+                    return named.to_string_lossy().into_owned();
+                }
+            }
+            // 再查找不带后缀的版本
+            let plain = exe_dir.join("ffmpeg");
+            if plain.exists() {
+                println!("FFMPEG_PATH: {}", plain.display());
+                return plain.to_string_lossy().into_owned();
+            }
+        }
+    }
+
+    // 回退到系统 PATH
+    println!("FFMPEG_PATH: ffmpeg (system)");
+    "ffmpeg".to_string()
+}
+
 #[tauri::command]
 fn get_api_port() -> u16 {
     19528
@@ -53,6 +88,8 @@ pub fn run() {
             println!("Project root: {:?}", root);
             println!("Backend script: {:?}", backend_script);
 
+            let ffmpeg_path = resolve_ffmpeg_path();
+
             // 尝试多个 Python 路径
             let python_paths = vec![
                 root.join(".venv/bin/python3"),
@@ -68,6 +105,7 @@ pub fn run() {
                     .arg(&backend_script)
                     .current_dir(&root)
                     .env("PYO3_USE_ABI3_FORWARD_COMPATIBILITY", "1")
+                    .env("FFMPEG_PATH", &ffmpeg_path)
                     .spawn()
                 {
                     Ok(c) => {
