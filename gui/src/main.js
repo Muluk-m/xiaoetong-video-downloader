@@ -4,12 +4,37 @@ const API_BASE = "http://127.0.0.1:19528";
 // ============ State ============
 let currentTaskId = null;
 let pollTimer = null;
+let logPollTimer = null;
+let logLastTimestamp = 0;
 let videos = [];
 let selectedCount = 0;
 
+// ============ Tauri invoke helper ============
+let invoke = null;
+try {
+  invoke = window.__TAURI__?.core?.invoke;
+} catch (e) { /* not in Tauri */ }
+
+// ============ Error Classes ============
+class BackendUnreachableError extends Error {
+  constructor(originalMessage) {
+    super("后端服务无法连接");
+    this.name = "BackendUnreachableError";
+    this.originalMessage = originalMessage;
+  }
+}
+
 // ============ Helpers ============
 async function api(path, opts = {}) {
-  const res = await fetch(`${API_BASE}${path}`, { headers: { "Content-Type": "application/json" }, ...opts });
+  let res;
+  try {
+    res = await fetch(`${API_BASE}${path}`, { headers: { "Content-Type": "application/json" }, ...opts });
+  } catch (e) {
+    if (e.message && (e.message.includes("Load failed") || e.message.includes("Failed to fetch") || e.message.includes("NetworkError"))) {
+      throw new BackendUnreachableError(e.message);
+    }
+    throw e;
+  }
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
@@ -29,13 +54,58 @@ function setStepDone(stepId) {
   dot.textContent = "\u2713";
 }
 
+function handleError(e, fallbackEl, prefix = "") {
+  if (e instanceof BackendUnreachableError) {
+    updateConnectionBanner("error", e.message);
+  }
+  if (fallbackEl) {
+    const msg = prefix ? `${prefix}: ${e.message}` : e.message;
+    if (fallbackEl.classList.contains("message")) {
+      showMessage(fallbackEl, msg, "error");
+    } else {
+      fallbackEl.textContent = msg;
+      fallbackEl.style.color = "var(--red)";
+    }
+  }
+}
+
+// ============ Connection Banner ============
+function updateConnectionBanner(status, detail) {
+  const banner = $("#connection-banner");
+  const msg = $("#conn-banner-msg");
+
+  if (status === "hidden" || status === "running") {
+    banner.style.display = "none";
+    return;
+  }
+
+  banner.style.display = "flex";
+  banner.className = "conn-banner";
+
+  if (status === "starting") {
+    banner.classList.add("conn-banner--starting");
+    msg.textContent = detail || "后端服务启动中...";
+  } else if (status === "error" || status === "failed") {
+    banner.classList.add("conn-banner--error");
+    msg.textContent = detail || "后端服务连接失败";
+  }
+}
+
 // ============ Navigation ============
 $$(".rail-btn").forEach(btn => {
   btn.addEventListener("click", () => {
     $$(".rail-btn").forEach(b => b.classList.remove("active"));
     $$(".panel").forEach(p => p.classList.remove("active"));
     btn.classList.add("active");
-    $(`#tab-${btn.dataset.tab}`).classList.add("active");
+    const tab = btn.dataset.tab;
+    $(`#tab-${tab}`).classList.add("active");
+
+    // Start/stop log polling based on tab
+    if (tab === "logs") {
+      startLogPolling();
+    } else {
+      stopLogPolling();
+    }
   });
 });
 
@@ -47,18 +117,60 @@ async function checkServer() {
     dot.className = "conn-dot conn-ok";
     dot.title = "已连接";
     return true;
-  } catch {
-    dot.className = "conn-dot conn-error";
-    dot.title = "未连接";
+  } catch (e) {
+    if (e instanceof BackendUnreachableError) {
+      dot.className = "conn-dot conn-error";
+      dot.title = "未连接";
+    } else {
+      dot.className = "conn-dot conn-error";
+      dot.title = "连接异常";
+    }
     return false;
   }
 }
 
 async function waitForServer() {
+  // First check Tauri-side backend status
+  if (invoke) {
+    try {
+      const st = await invoke("get_backend_status");
+      if (st.status === "not_found") {
+        updateConnectionBanner("error", "未找到后端程序: " + (st.error || ""));
+        return;
+      }
+      if (st.status === "failed") {
+        updateConnectionBanner("error", "后端启动失败: " + (st.error || ""));
+        return;
+      }
+    } catch (e) {
+      // Not in Tauri, proceed with HTTP polling
+    }
+  }
+
+  updateConnectionBanner("starting", "后端服务启动中，请稍候...");
+
   for (let i = 0; i < 30; i++) {
-    if (await checkServer()) { loadConfig(); return; }
+    // Check Tauri status each iteration
+    if (invoke) {
+      try {
+        const st = await invoke("get_backend_status");
+        if (st.status === "failed" || st.status === "not_found") {
+          updateConnectionBanner("error", "后端启动失败: " + (st.error || "未知错误"));
+          $("#server-status").className = "conn-dot conn-error";
+          return;
+        }
+      } catch (e) { /* ignore */ }
+    }
+
+    if (await checkServer()) {
+      updateConnectionBanner("hidden");
+      loadConfig();
+      return;
+    }
     await new Promise(r => setTimeout(r, 1000));
   }
+
+  updateConnectionBanner("error", "后端服务在 30 秒内未能启动，请查看日志");
   $("#server-status").className = "conn-dot conn-error";
 }
 
@@ -74,7 +186,6 @@ async function loadConfig() {
       $("#input-download-dir").value = c.download_dir || "download";
       $("#input-max-workers").value = c.max_workers || 5;
 
-      // Show parsed info if we have saved values
       if (c.app_id && c.product_id) {
         $("#parsed-app-id").textContent = c.app_id;
         $("#parsed-product-id").textContent = c.product_id;
@@ -88,7 +199,9 @@ async function loadConfig() {
         $("#cookie-hint").style.color = "var(--green)";
       }
     }
-  } catch {}
+  } catch (e) {
+    handleError(e);
+  }
 }
 
 // ============ Step 1: Auto Cookie ============
@@ -110,8 +223,7 @@ $("#btn-auto-cookie").addEventListener("click", async () => {
       hint.style.color = "var(--red)";
     }
   } catch (e) {
-    hint.textContent = "读取失败: " + e.message;
-    hint.style.color = "var(--red)";
+    handleError(e, hint, "读取失败");
   } finally {
     btn.disabled = false;
     btn.innerHTML = '<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>一键同步 Chrome 登录';
@@ -153,8 +265,7 @@ async function parseUrl() {
       hint.style.color = "var(--red)";
     }
   } catch (e) {
-    hint.textContent = "解析失败: " + e.message;
-    hint.style.color = "var(--red)";
+    handleError(e, hint, "解析失败");
   }
 }
 
@@ -169,8 +280,7 @@ $("#btn-browse-dir").addEventListener("click", async () => {
       hint.style.color = "var(--green)";
     }
   } catch (e) {
-    hint.textContent = "选择失败: " + e.message;
-    hint.style.color = "var(--red)";
+    handleError(e, hint, "选择失败");
   }
 });
 
@@ -201,7 +311,7 @@ $("#btn-save-config").addEventListener("click", async () => {
     const data = await api("/api/config", { method: "POST", body: JSON.stringify(config) });
     showMessage(msg, data.success ? "设置已保存，可以去「课程」页面加载视频了" : "保存失败", data.success ? "success" : "error");
   } catch (e) {
-    showMessage(msg, "保存失败: " + e.message, "error");
+    handleError(e, msg, "保存失败");
   } finally {
     btn.disabled = false;
   }
@@ -218,7 +328,7 @@ $("#btn-check-env").addEventListener("click", async () => {
     const data = await api("/api/check");
     showMessage(msg, data.message, data.success ? "success" : "error");
   } catch (e) {
-    showMessage(msg, "检查失败: " + e.message, "error");
+    handleError(e, msg, "检查失败");
   } finally {
     btn.disabled = false;
     btn.textContent = "检查环境";
@@ -241,7 +351,12 @@ $("#btn-refresh-videos").addEventListener("click", async () => {
       $("#video-list").innerHTML = `<div class="empty"><p>${data.message || "获取失败，请检查设置是否正确"}</p></div>`;
     }
   } catch (e) {
-    $("#video-list").innerHTML = `<div class="empty"><p>获取失败: ${e.message}</p></div>`;
+    if (e instanceof BackendUnreachableError) {
+      updateConnectionBanner("error", e.message);
+      $("#video-list").innerHTML = `<div class="empty"><p>后端服务无法连接，请查看日志</p></div>`;
+    } else {
+      $("#video-list").innerHTML = `<div class="empty"><p>获取失败: ${e.message}</p></div>`;
+    }
   } finally {
     btn.disabled = false;
     btn.textContent = "加载课程";
@@ -267,7 +382,6 @@ function renderVideoList(list) {
     } else if (dlStatus === "none") {
       statusHtml = '<span class="dl-badge dl-badge--none">未下载</span>';
     } else {
-      // partial like "3200/5857"
       statusHtml = `<span class="dl-badge dl-badge--partial">下载中 ${dlStatus}</span>`;
     }
 
@@ -354,7 +468,12 @@ async function startDownload(resourceIds = []) {
     }
   } catch (e) {
     $("#dl-status-text").textContent = "错误";
-    appendLog("error", "启动下载失败: " + e.message);
+    if (e instanceof BackendUnreachableError) {
+      updateConnectionBanner("error", e.message);
+      appendLog("error", "后端服务无法连接");
+    } else {
+      appendLog("error", "启动下载失败: " + e.message);
+    }
   }
 }
 
@@ -418,6 +537,12 @@ function startPolling(taskId) {
         showResults(task.results);
       }
     } catch (e) {
+      if (e instanceof BackendUnreachableError) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+        updateConnectionBanner("error", e.message);
+        appendLog("error", "后端服务断开连接");
+      }
       console.error("Poll error:", e);
     }
   }, 800);
@@ -461,7 +586,145 @@ $("#btn-cancel-download").addEventListener("click", async () => {
     await api(`/api/download/cancel/${currentTaskId}`, { method: "POST" });
     appendLog("info", "正在取消...");
   } catch (e) {
+    if (e instanceof BackendUnreachableError) {
+      updateConnectionBanner("error", e.message);
+    }
     appendLog("error", "取消失败: " + e.message);
+  }
+});
+
+// ============ Backend Log Polling ============
+function startLogPolling() {
+  if (logPollTimer) return;
+  fetchAndRenderLogs(); // immediate first fetch
+  logPollTimer = setInterval(fetchAndRenderLogs, 1000);
+}
+
+function stopLogPolling() {
+  if (logPollTimer) {
+    clearInterval(logPollTimer);
+    logPollTimer = null;
+  }
+}
+
+async function fetchAndRenderLogs() {
+  if (!invoke) return;
+
+  try {
+    const [statusResult, logsResult] = await Promise.all([
+      invoke("get_backend_status"),
+      invoke("get_backend_logs", { since: logLastTimestamp }),
+    ]);
+
+    // Update status display
+    const statusMap = {
+      starting: "启动中",
+      running: "运行中",
+      failed: "启动失败",
+      not_found: "未找到",
+    };
+    const statusEl = $("#backend-status-display");
+    statusEl.textContent = statusMap[statusResult.status] || statusResult.status;
+    statusEl.style.color = statusResult.status === "running" ? "var(--green)" :
+                           statusResult.status === "failed" || statusResult.status === "not_found" ? "var(--red)" :
+                           "var(--accent)";
+
+    // Update log count
+    $("#backend-log-count").textContent = logsResult.total;
+
+    // Update status subtitle
+    const subtitle = $("#logs-status-text");
+    if (statusResult.status === "failed" && statusResult.error) {
+      subtitle.textContent = statusResult.error;
+    } else {
+      subtitle.textContent = `状态: ${statusMap[statusResult.status] || statusResult.status}`;
+    }
+
+    // Append new logs
+    if (logsResult.logs.length > 0) {
+      const output = $("#backend-log-output");
+      const empty = output.querySelector(".dl-log-empty");
+      if (empty) empty.remove();
+
+      for (const entry of logsResult.logs) {
+        const line = document.createElement("div");
+        line.className = `log-line-${entry.stream}`;
+
+        const ts = document.createElement("span");
+        ts.className = "log-ts";
+        const d = new Date(entry.timestamp);
+        ts.textContent = `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}:${d.getSeconds().toString().padStart(2, "0")}`;
+        line.appendChild(ts);
+
+        line.appendChild(document.createTextNode(entry.message));
+        output.appendChild(line);
+
+        if (entry.timestamp > logLastTimestamp) {
+          logLastTimestamp = entry.timestamp;
+        }
+      }
+
+      output.scrollTop = output.scrollHeight;
+    }
+  } catch (e) {
+    console.error("Log poll error:", e);
+  }
+}
+
+// ============ Banner action buttons ============
+$("#btn-retry-conn").addEventListener("click", async () => {
+  updateConnectionBanner("starting", "重新连接中...");
+  await waitForServer();
+});
+
+$("#btn-restart-backend").addEventListener("click", async () => {
+  if (!invoke) {
+    updateConnectionBanner("error", "仅在桌面应用中支持重启后端");
+    return;
+  }
+  updateConnectionBanner("starting", "正在重启后端...");
+  try {
+    await invoke("restart_backend");
+    logLastTimestamp = 0;
+    await waitForServer();
+  } catch (e) {
+    updateConnectionBanner("error", "重启失败: " + e.message);
+  }
+});
+
+$("#btn-view-logs").addEventListener("click", () => {
+  // Switch to logs tab
+  $$(".rail-btn").forEach(b => b.classList.remove("active"));
+  $$(".panel").forEach(p => p.classList.remove("active"));
+  $$(".rail-btn")[3].classList.add("active");
+  $("#tab-logs").classList.add("active");
+  startLogPolling();
+});
+
+// ============ Logs panel buttons ============
+$("#btn-clear-logs").addEventListener("click", () => {
+  const output = $("#backend-log-output");
+  output.innerHTML = '<p class="dl-log-empty">日志已清空</p>';
+});
+
+$("#btn-restart-backend-logs").addEventListener("click", async () => {
+  if (!invoke) return;
+  const btn = $("#btn-restart-backend-logs");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>重启中';
+
+  try {
+    await invoke("restart_backend");
+    logLastTimestamp = 0;
+    const output = $("#backend-log-output");
+    output.innerHTML = '<p class="dl-log-empty">后端已重启，等待日志...</p>';
+    // Also re-check connection
+    await waitForServer();
+  } catch (e) {
+    console.error("Restart error:", e);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "重启后端";
   }
 });
 

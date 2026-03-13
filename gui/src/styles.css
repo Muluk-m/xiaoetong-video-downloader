@@ -719,6 +719,109 @@ textarea { font-family: "SF Mono", "Menlo", monospace; font-size: 11.5px; line-h
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
 
+/* ============ Connection Banner ============ */
+.conn-banner {
+  padding: 10px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.conn-banner--starting {
+  background: #d9a430;
+  color: #fff;
+}
+
+.conn-banner--error {
+  background: var(--red);
+  color: #fff;
+}
+
+.conn-banner-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.conn-banner-icon::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.7;
+}
+
+.conn-banner-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.conn-banner-actions .action-btn {
+  background: rgba(255,255,255,0.2);
+  border-color: rgba(255,255,255,0.3);
+  color: #fff;
+  font-size: 11px;
+  padding: 4px 10px;
+}
+
+.conn-banner-actions .action-btn:hover {
+  background: rgba(255,255,255,0.3);
+  border-color: rgba(255,255,255,0.4);
+}
+
+/* ============ Backend Log Panel ============ */
+.backend-info {
+  display: flex;
+  gap: 20px;
+  padding: 8px 0;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.backend-info-item {
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.backend-info-item strong {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.backend-log {
+  flex: 1;
+  min-height: 200px;
+  overflow-y: auto;
+  font-family: "SF Mono", "Menlo", monospace;
+  font-size: 11px;
+  line-height: 1.7;
+  padding: 12px 14px;
+  background: var(--bg-inset);
+  border-radius: 6px;
+  color: var(--text-2);
+}
+
+.backend-log .log-line-stderr {
+  color: var(--red);
+}
+
+.backend-log .log-line-stdout {
+  color: var(--text-2);
+}
+
+.backend-log .log-ts {
+  color: var(--text-3);
+  margin-right: 6px;
+  font-size: 10px;
+}
+
 /* ============ Entrance animation ============ */
 .panel.active {
   animation: panelIn 0.25s ease-out;

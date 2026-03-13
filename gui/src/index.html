@@ -30,6 +30,10 @@
             <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
             <span>下载</span>
           </button>
+          <button class="rail-btn" data-tab="logs" title="日志">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/></svg>
+            <span>日志</span>
+          </button>
         </nav>
       </div>
       <div class="rail-bottom">
@@ -39,6 +43,19 @@
 
     <!-- 主内容区 -->
     <main class="content">
+
+      <!-- 连接错误横幅 -->
+      <div id="connection-banner" class="conn-banner" style="display:none">
+        <div class="conn-banner-text">
+          <span class="conn-banner-icon"></span>
+          <span id="conn-banner-msg">后端服务连接中...</span>
+        </div>
+        <div class="conn-banner-actions">
+          <button id="btn-retry-conn" class="action-btn action-btn--sm">重试连接</button>
+          <button id="btn-restart-backend" class="action-btn action-btn--sm">重启后端</button>
+          <button id="btn-view-logs" class="action-btn action-btn--sm">查看日志</button>
+        </div>
+      </div>
 
       <!-- ====== 设置 ====== -->
       <section class="panel active" id="tab-config">
@@ -219,6 +236,29 @@
         <div id="download-results" class="dl-results" style="display:none">
           <div class="dl-results-head">下载结果</div>
           <div id="results-content"></div>
+        </div>
+      </section>
+
+      <!-- ====== 日志 ====== -->
+      <section class="panel" id="tab-logs">
+        <header class="panel-header">
+          <div>
+            <h1>后端日志</h1>
+            <p class="panel-sub" id="logs-status-text">查看 Python 后端的输出日志</p>
+          </div>
+          <div class="panel-header-actions">
+            <button id="btn-clear-logs" class="action-btn action-btn--sm">清空</button>
+            <button id="btn-restart-backend-logs" class="action-btn action-btn--primary action-btn--sm">重启后端</button>
+          </div>
+        </header>
+
+        <div class="backend-info">
+          <span class="backend-info-item">状态: <strong id="backend-status-display">-</strong></span>
+          <span class="backend-info-item">日志条数: <strong id="backend-log-count">0</strong></span>
+        </div>
+
+        <div id="backend-log-output" class="backend-log">
+          <p class="dl-log-empty">等待后端启动...</p>
         </div>
       </section>
 
