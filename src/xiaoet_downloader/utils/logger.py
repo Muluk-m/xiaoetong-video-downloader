@@ -3,6 +3,7 @@
 
 import logging
 import os
+import sys
 from datetime import datetime
 from typing import Optional
 
@@ -31,8 +32,14 @@ class Logger:
         if self._logger.handlers:
             return
         
-        # 创建日志目录
-        log_dir = 'logs'
+        # 创建日志目录（打包后 cwd 可能只读，使用 ~/Library 或 fallback 到 cwd）
+        if getattr(sys, 'frozen', False):
+            # PyInstaller 打包模式：写到用户目录
+            log_dir = os.path.join(
+                os.path.expanduser('~/Library/Logs'), 'xiaoet-downloader'
+            )
+        else:
+            log_dir = 'logs'
         os.makedirs(log_dir, exist_ok=True)
         
         # 文件处理器
