@@ -17,6 +17,18 @@ import uuid
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+
+def _sanitize_filename(filename: str) -> str:
+    """清理文件名，移除非法字符（与 FileUtils.sanitize_filename 保持一致）"""
+    filename = re.sub(r'[<>:"/\\|?*]', '_', filename)
+    filename = ''.join(char for char in filename if ord(char) >= 32)
+    filename = filename.strip(' .')
+    if not filename:
+        filename = 'untitled'
+    if len(filename) > 200:
+        filename = filename[:200]
+    return filename
+
 import rookiepy
 import uvicorn
 from fastapi import FastAPI, HTTPException
@@ -121,12 +133,13 @@ async def get_chrome_cookies():
         domains = [".xiaoe-tech.com", ".xet.citv.cn", ".xiaoeknow.com", ".xet.tech"]
 
         all_cookies = []
+        errors = []
         for domain in domains:
             try:
                 cookies = rookiepy.chrome([domain])
                 all_cookies.extend(cookies)
-            except Exception:
-                pass
+            except Exception as e:
+                errors.append(f"domain {domain}: {e}")
 
         # 如果按域名没找到，从全量 cookie 中搜索
         if not all_cookies:
@@ -137,11 +150,14 @@ async def get_chrome_cookies():
                     c for c in all_browser_cookies
                     if any(kw in c.get("domain", "").lower() or kw in c.get("name", "").lower() for kw in keywords)
                 ]
-            except Exception:
-                pass
+            except Exception as e:
+                errors.append(f"全量读取: {e}")
 
         if not all_cookies:
-            return {"success": False, "message": "未找到小鹅通相关 Cookie，请先在 Chrome 中登录小鹅通", "cookie": ""}
+            msg = "未找到小鹅通相关 Cookie，请先在 Chrome 中登录小鹅通"
+            if errors:
+                msg += "。错误详情: [" + "; ".join(errors) + "]"
+            return {"success": False, "message": msg, "cookie": ""}
 
         # 去重（按 name 去重，保留最后一个）
         seen = {}
@@ -205,7 +221,8 @@ async def list_videos():
         for v in videos:
             rid = v.get("resource_id", "")
             title = v.get("resource_title", "")
-            if dl_status_by_id.get(rid) == "done" or title in mp4_titles:
+            safe_title = _sanitize_filename(title) if title else ""
+            if dl_status_by_id.get(rid) == "done" or safe_title in mp4_titles:
                 v["dl_status"] = "done"
             elif rid in dl_status_by_id:
                 v["dl_status"] = dl_status_by_id[rid]
@@ -235,6 +252,36 @@ async def browse_directory():
             return {"success": False, "message": "当前系统不支持文件夹选择"}
     except subprocess.TimeoutExpired:
         return {"success": False, "message": "选择超时"}
+    except Exception as e:
+        return {"success": False, "message": str(e)}
+
+
+# ============ Finder 打开文件 ============
+
+
+class RevealFileRequest(BaseModel):
+    title: str
+
+
+@app.post("/api/reveal-file")
+async def reveal_file(req: RevealFileRequest):
+    """在 Finder 中显示已下载的视频文件"""
+    try:
+        config = _load_config()
+        safe_title = _sanitize_filename(req.title)
+        mp4_path = os.path.join(config.download_dir, f"{safe_title}.mp4")
+
+        if not os.path.exists(mp4_path):
+            return {"success": False, "message": f"文件不存在: {safe_title}.mp4"}
+
+        if sys.platform == "darwin":
+            subprocess.Popen(["open", "-R", mp4_path])
+        elif sys.platform.startswith("win"):
+            subprocess.Popen(["explorer", "/select,", mp4_path])
+        else:
+            subprocess.Popen(["xdg-open", os.path.dirname(mp4_path)])
+
+        return {"success": True}
     except Exception as e:
         return {"success": False, "message": str(e)}
 
@@ -347,8 +394,9 @@ def _scan_download_status(download_dir: str) -> dict:
                 with open(meta_path, "r", encoding="utf-8") as f:
                     meta = json.load(f)
                 title = meta.get("title", "")
-                # 检查是否有转码后的 mp4
-                mp4_path = os.path.join(download_dir, f"{title}.mp4")
+                # 检查是否有转码后的 mp4（转码器用 sanitize_filename 保存）
+                safe_title = _sanitize_filename(title) if title else ""
+                mp4_path = os.path.join(download_dir, f"{safe_title}.mp4")
                 if title and os.path.exists(mp4_path):
                     status[entry] = "done"
                 elif meta.get("complete"):

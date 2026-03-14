@@ -218,6 +218,7 @@ $("#btn-auto-cookie").addEventListener("click", async () => {
       hint.textContent = "登录信息同步成功";
       hint.style.color = "var(--green)";
       setStepDone("step1-dot");
+      autoSaveConfig();
     } else {
       hint.textContent = "未找到登录信息，请先用 Chrome 打开小鹅通并登录";
       hint.style.color = "var(--red)";
@@ -260,6 +261,7 @@ async function parseUrl() {
       hint.textContent = "解析成功";
       hint.style.color = "var(--green)";
       setStepDone("step2-dot");
+      autoSaveConfig();
     } else {
       hint.textContent = data.message || "无法识别链接，请确认是小鹅通课程页面的链接";
       hint.style.color = "var(--red)";
@@ -278,43 +280,48 @@ $("#btn-browse-dir").addEventListener("click", async () => {
       $("#input-download-dir").value = data.path;
       hint.textContent = "已选择: " + data.path;
       hint.style.color = "var(--green)";
+      autoSaveConfig();
     }
   } catch (e) {
     handleError(e, hint, "选择失败");
   }
 });
 
-// ============ Save Config ============
-$("#btn-save-config").addEventListener("click", async () => {
-  const btn = $("#btn-save-config");
+// ============ Auto-Save Config ============
+let _saveTimer = null;
+
+function _gatherConfig() {
+  return {
+    cookie: $("#input-cookie").value.trim(),
+    app_id: $("#input-app-id").value.trim(),
+    product_id: $("#input-product-id").value.trim(),
+    download_dir: $("#input-download-dir").value.trim() || "download",
+    max_workers: parseInt($("#input-max-workers").value) || 5,
+  };
+}
+
+async function autoSaveConfig() {
   const msg = $("#config-message");
-  btn.disabled = true;
+  const config = _gatherConfig();
 
   try {
-    const config = {
-      cookie: $("#input-cookie").value.trim(),
-      app_id: $("#input-app-id").value.trim(),
-      product_id: $("#input-product-id").value.trim(),
-      download_dir: $("#input-download-dir").value.trim() || "download",
-      max_workers: parseInt($("#input-max-workers").value) || 5,
-    };
-
-    if (!config.cookie) {
-      showMessage(msg, "请先完成第一步：同步登录状态", "error");
-      return;
-    }
-    if (!config.app_id || !config.product_id) {
-      showMessage(msg, "请先完成第二步：填写课程链接", "error");
-      return;
-    }
-
     const data = await api("/api/config", { method: "POST", body: JSON.stringify(config) });
-    showMessage(msg, data.success ? "设置已保存，可以去「课程」页面加载视频了" : "保存失败", data.success ? "success" : "error");
+    if (data.success) {
+      showMessage(msg, "已自动保存", "success");
+    }
   } catch (e) {
-    handleError(e, msg, "保存失败");
-  } finally {
-    btn.disabled = false;
+    handleError(e, msg, "自动保存失败");
   }
+}
+
+function scheduleAutoSave() {
+  if (_saveTimer) clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(autoSaveConfig, 600);
+}
+
+// 监听所有配置输入框变化
+["#input-cookie", "#input-app-id", "#input-product-id", "#input-download-dir", "#input-max-workers"].forEach(sel => {
+  $(sel).addEventListener("input", scheduleAutoSave);
 });
 
 // ============ Check Env ============
@@ -377,8 +384,10 @@ function renderVideoList(list) {
     const dlStatus = v.dl_status || "none";
 
     let statusHtml = "";
+    let revealBtnHtml = "";
     if (dlStatus === "done") {
       statusHtml = '<span class="dl-badge dl-badge--done">已下载</span>';
+      revealBtnHtml = `<button class="reveal-btn" data-title="${title.replace(/"/g, '&quot;')}" title="在 Finder 中显示"><svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/></svg></button>`;
     } else if (dlStatus === "none") {
       statusHtml = '<span class="dl-badge dl-badge--none">未下载</span>';
     } else {
@@ -394,6 +403,7 @@ function renderVideoList(list) {
           <div class="vi-meta">${date}</div>
         </div>
         <div class="vi-status">
+          ${revealBtnHtml}
           ${statusHtml}
         </div>
       </div>`;
@@ -402,9 +412,28 @@ function renderVideoList(list) {
   container.querySelectorAll(".video-item").forEach(item => {
     item.addEventListener("click", (e) => {
       if (e.target.type === "checkbox") { updateSelectedCount(); return; }
+      if (e.target.closest(".reveal-btn")) return;
       const cb = item.querySelector(".video-checkbox");
       cb.checked = !cb.checked;
       updateSelectedCount();
+    });
+  });
+
+  container.querySelectorAll(".reveal-btn").forEach(btn => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const title = btn.dataset.title;
+      try {
+        const data = await api("/api/reveal-file", {
+          method: "POST",
+          body: JSON.stringify({ title }),
+        });
+        if (!data.success) {
+          console.error("Reveal failed:", data.message);
+        }
+      } catch (err) {
+        console.error("Reveal error:", err);
+      }
     });
   });
 
