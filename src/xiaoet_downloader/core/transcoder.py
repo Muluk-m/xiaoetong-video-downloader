@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import shutil
 import subprocess
 from typing import Optional
 
@@ -55,6 +56,7 @@ class VideoTranscoder:
             # 检查输出文件是否已存在
             if os.path.exists(output_file):
                 logger.info(f"文件 {output_file} 已存在，跳过合并")
+                self._cleanup_resource_dir(resource_dir)
                 return DownloadResult(resource, True, "文件已存在，跳过合并", output_file)
             
             # 更新资源状态
@@ -100,6 +102,7 @@ class VideoTranscoder:
                 resource.download_status = DownloadStatus.COMPLETED
                 resource.file_path = output_file
                 logger.info(f"视频合并完成: {output_file}")
+                self._cleanup_resource_dir(resource_dir)
                 return DownloadResult(resource, True, "合并完成", output_file)
             else:
                 return DownloadResult(resource, False, "合并后文件不存在或为空")
@@ -125,6 +128,18 @@ class VideoTranscoder:
             if resource.download_status == DownloadStatus.TRANSCODING:
                 resource.download_status = DownloadStatus.FAILED
     
+    def _cleanup_resource_dir(self, resource_dir: str) -> None:
+        """删除已合并视频对应的临时分片目录(.ts + m3u8 + metadata)。
+        失败仅记录日志,不影响主流程。
+        """
+        if not os.path.exists(resource_dir):
+            return
+        try:
+            shutil.rmtree(resource_dir)
+            logger.info(f"已清理临时分片目录: {resource_dir}")
+        except Exception as e:
+            logger.warning(f"清理临时分片目录失败 {resource_dir}: {e}")
+
     def check_ffmpeg_availability(self) -> bool:
         """检查ffmpeg是否可用"""
         try:

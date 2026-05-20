@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import shutil
 from typing import List, Dict, Tuple, Optional, Any
 
 from ..models.config import XiaoetConfig
@@ -115,13 +116,14 @@ class XiaoetDownloadManager:
             
             # 打印处理结果
             self._print_summary(results)
-            
+            self.cleanup_orphan_resource_dirs()
+
         except Exception as e:
             logger.error(f"下载课程时发生错误: {str(e)}")
-        
+
         return results
-    
-    def download_single_video(self, resource_id: str, nocache: bool = False, 
+
+    def download_single_video(self, resource_id: str, nocache: bool = False,
                              auto_transcode: bool = True) -> DownloadResult:
         """
         下载单个视频
@@ -450,12 +452,47 @@ class XiaoetDownloadManager:
             
             # 打印结果摘要
             self._print_summary(results)
-            
+            self.cleanup_orphan_resource_dirs()
+
         except Exception as e:
             logger.error(f"批量下载时发生错误: {str(e)}")
-        
+
         return results
     
+    def cleanup_orphan_resource_dirs(self) -> int:
+        """扫描下载目录,删除已合并 mp4 后仍残留的临时分片子目录。
+
+        判定: 子目录里的 metadata.json 标记 complete=True,且其 title 对应
+        的 .mp4 (sanitized) 在 download_dir 下已存在,则视为孤儿,清理。
+        Returns: 实际清理的子目录数量。
+        """
+        download_dir = self.config.download_dir
+        if not os.path.isdir(download_dir):
+            return 0
+
+        cleaned = 0
+        for name in os.listdir(download_dir):
+            sub = os.path.join(download_dir, name)
+            metadata_file = os.path.join(sub, 'metadata.json')
+            if not os.path.isdir(sub) or not os.path.exists(metadata_file):
+                continue
+            try:
+                meta = FileUtils.load_json(metadata_file) or {}
+                if not meta.get('complete'):
+                    continue
+                title = meta.get('title') or ''
+                safe = FileUtils.sanitize_filename(title) or name
+                mp4_path = os.path.join(download_dir, safe + '.mp4')
+                if os.path.exists(mp4_path) and FileUtils.get_file_size(mp4_path) > 0:
+                    shutil.rmtree(sub)
+                    cleaned += 1
+                    logger.info(f"清理孤儿临时目录: {sub}")
+            except Exception as e:
+                logger.warning(f"扫描清理 {sub} 时出错: {e}")
+        if cleaned:
+            logger.info(f"共清理 {cleaned} 个孤儿临时目录")
+        return cleaned
+
     def _parse_selection(self, choice: str, max_count: int) -> List[int]:
         """
         解析用户选择

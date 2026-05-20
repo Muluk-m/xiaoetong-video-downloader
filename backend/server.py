@@ -50,6 +50,7 @@ else:
     sys.path.insert(0, str(APP_DIR / "src"))
 
 from xiaoet_downloader import XiaoetConfig, XiaoetDownloadManager, logger
+from xiaoet_downloader.models.config import default_download_dir
 from xiaoet_downloader.models.video import (
     DownloadResult,
     DownloadStatus,
@@ -75,6 +76,19 @@ CONFIG_PATH = str(DATA_DIR / "config.json")
 download_tasks: Dict[str, Dict[str, Any]] = {}
 
 
+def _resolve_download_dir(download_dir: str) -> str:
+    """Resolve configured download paths to user-visible locations."""
+    raw_dir = (download_dir or "").strip()
+    if not raw_dir or raw_dir == "download":
+        return default_download_dir()
+
+    expanded = os.path.expanduser(raw_dir)
+    if os.path.isabs(expanded):
+        return expanded
+
+    return str(Path(default_download_dir()) / expanded)
+
+
 # ============ 请求模型 ============
 
 
@@ -82,7 +96,7 @@ class ConfigUpdate(BaseModel):
     app_id: str = ""
     cookie: str = ""
     product_id: str = ""
-    download_dir: str = "download"
+    download_dir: str = default_download_dir()
     max_workers: int = 5
 
 
@@ -217,6 +231,29 @@ def validate_cookie(req: ValidateCookieRequest):
         return {"success": True, "valid": False, "message": f"Cookie 已失效或网络异常：{msg}"}
 
 
+# ============ 启动时清理孤儿临时分片目录 ============
+
+
+@app.on_event("startup")
+def _cleanup_orphan_dirs_on_startup() -> None:
+    """启动时扫描下载目录,清理已合并 .mp4 但残留的临时分片目录。"""
+    try:
+        if not os.path.exists(CONFIG_PATH):
+            return
+        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+            saved = json.load(f)
+        cfg = XiaoetConfig(
+            app_id=saved.get("app_id", ""),
+            cookie=saved.get("cookie", ""),
+            product_id=saved.get("product_id", ""),
+            download_dir=_resolve_download_dir(saved.get("download_dir", "")),
+            max_workers=int(saved.get("max_workers", 5)),
+        )
+        XiaoetDownloadManager(cfg).cleanup_orphan_resource_dirs()
+    except Exception as e:
+        logger.warning(f"启动清理孤儿目录失败: {e}")
+
+
 # ============ 配置相关 ============
 
 
@@ -227,8 +264,9 @@ async def get_config():
         if os.path.exists(CONFIG_PATH):
             with open(CONFIG_PATH, "r", encoding="utf-8") as f:
                 config = json.load(f)
+            config["download_dir"] = _resolve_download_dir(config.get("download_dir", ""))
             return {"success": True, "config": config}
-        return {"success": True, "config": {"app_id": "", "cookie": "", "product_id": "", "download_dir": "download", "max_workers": 5}}
+        return {"success": True, "config": {"app_id": "", "cookie": "", "product_id": "", "download_dir": default_download_dir(), "max_workers": 5}}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -238,6 +276,7 @@ async def save_config(config: ConfigUpdate):
     """保存配置"""
     try:
         config_dict = config.model_dump()
+        config_dict["download_dir"] = _resolve_download_dir(config_dict.get("download_dir", ""))
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
             json.dump(config_dict, f, ensure_ascii=False, indent=2)
         return {"success": True, "message": "配置已保存"}
@@ -465,9 +504,7 @@ def _load_config() -> XiaoetConfig:
     if not os.path.exists(CONFIG_PATH):
         raise Exception("配置文件不存在，请先保存配置")
     config = XiaoetConfig.from_file(CONFIG_PATH)
-    # 确保 download_dir 为绝对路径（相对于数据目录）
-    if not os.path.isabs(config.download_dir):
-        config.download_dir = str(DATA_DIR / config.download_dir)
+    config.download_dir = _resolve_download_dir(config.download_dir)
     return config
 
 
