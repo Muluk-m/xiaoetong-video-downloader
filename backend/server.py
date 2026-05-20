@@ -171,6 +171,52 @@ async def get_chrome_cookies():
         return {"success": False, "message": f"读取 Cookie 失败: {str(e)}", "cookie": ""}
 
 
+class ValidateCookieRequest(BaseModel):
+    cookie: str = ""
+    app_id: str = ""
+
+
+@app.post("/api/validate-cookie")
+def validate_cookie(req: ValidateCookieRequest):
+    """验证 Cookie 是否有效（通过调用小鹅通 API 检查登录状态）。
+    Sync def: 复用 XiaoetAPIClient 内部用阻塞 requests 调用,
+    FastAPI 会自动放到线程池里执行,不阻塞事件循环。
+    """
+    cookie = req.cookie.strip()
+    app_id = req.app_id.strip()
+
+    if not cookie:
+        return {"success": False, "valid": False, "message": "Cookie 为空"}
+
+    if not app_id:
+        try:
+            if os.path.exists(CONFIG_PATH):
+                with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+                    saved = json.load(f)
+                app_id = saved.get("app_id", "")
+        except Exception:
+            pass
+
+    if not app_id:
+        return {"success": True, "valid": None, "message": "未配置 App ID，无法验证 Cookie 有效性（Cookie 已保存）"}
+
+    try:
+        from xiaoet_downloader.api.client import XiaoetAPIClient
+        cfg = XiaoetConfig(app_id=app_id, cookie=cookie, product_id="")
+        data = XiaoetAPIClient(cfg).get_micro_navigation_info()
+        user_id = data.get("user_id", "")
+
+        if user_id:
+            return {"success": True, "valid": True, "message": f"Cookie 有效（用户ID: {user_id[:8]}...）", "user_id": user_id}
+        return {"success": True, "valid": False, "message": "Cookie 无效，未能获取用户信息，请重新登录小鹅通"}
+
+    except Exception as e:
+        msg = str(e)
+        if "超时" in msg:
+            return {"success": False, "valid": None, "message": msg}
+        return {"success": True, "valid": False, "message": f"Cookie 已失效或网络异常：{msg}"}
+
+
 # ============ 配置相关 ============
 
 

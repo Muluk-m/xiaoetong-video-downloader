@@ -2,7 +2,9 @@
 # -*- coding: utf-8 -*-
 
 import os
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 import m3u8
 from typing import Callable, List, Optional, Tuple
@@ -53,7 +55,7 @@ class VideoDownloader:
             logger.info(f"开始下载视频: {resource.title}")
             
             # 获取m3u8内容
-            response = self.session.get(play_url)
+            response = self.session.get(play_url, timeout=15)
             if response.status_code != 200:
                 return DownloadResult(resource, False, f"获取m3u8内容失败: HTTP {response.status_code}")
             
@@ -81,28 +83,48 @@ class VideoDownloader:
             if media.keys:
                 key_file = self._download_encryption_keys(media.keys, resource_dir)
             
-            # 下载每个视频片段
+            # 找出需要下载的片段
+            to_download = []  # (index, segment, ts_file)
             for index, segment in enumerate(media.data['segments']):
                 ts_file = os.path.join(resource_dir, f'v_{index}.ts')
-                
-                # 如果文件已存在且不忽略缓存，则跳过
                 if not nocache and os.path.exists(ts_file):
                     logger.info(f"[{index+1}/{total_segments}] 已下载: {os.path.basename(ts_file)}")
                     downloaded_segments += 1
                 else:
-                    # 下载片段
-                    success = self._download_segment(segment, ts_file, url_prefix, index + 1, total_segments)
-                    if success:
-                        changed = True
-                        downloaded_segments += 1
-                    else:
-                        complete = False
+                    to_download.append((index, segment, ts_file))
 
-                # 上报分片级进度
-                if progress_callback:
-                    progress_callback(downloaded_segments, total_segments)
-                
-                # 更新片段URI为本地文件
+            # 并发下载片段
+            if to_download:
+                max_workers = min(self.config.max_workers, len(to_download))
+                download_results = {}  # index -> bool
+                lock = threading.Lock()
+
+                def _do_download(item):
+                    idx, seg, ts = item
+                    success = self._download_segment(seg, ts, url_prefix, idx + 1, total_segments)
+                    with lock:
+                        download_results[idx] = success
+                        nonlocal downloaded_segments, changed, complete
+                        if success:
+                            changed = True
+                            downloaded_segments += 1
+                        else:
+                            complete = False
+                        if progress_callback:
+                            progress_callback(downloaded_segments, total_segments)
+                    return idx, success
+
+                with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                    futures = {executor.submit(_do_download, item): item for item in to_download}
+                    for future in as_completed(futures):
+                        future.result()  # 确保异常被抛出
+
+            # 上报最终进度
+            if progress_callback:
+                progress_callback(downloaded_segments, total_segments)
+
+            # 构建 segments 列表（保持顺序）
+            for index, segment in enumerate(media.data['segments']):
                 segment['uri'] = f'v_{index}.ts'
                 segments.append(Segment(base_uri=None, keyobject=find_key(segment.get('key', {}), media.keys), **segment))
             

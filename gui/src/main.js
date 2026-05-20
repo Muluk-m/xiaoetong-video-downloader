@@ -194,14 +194,73 @@ async function loadConfig() {
       }
 
       if (c.cookie) {
-        setStepDone("step1-dot");
-        $("#cookie-hint").textContent = "已有登录信息";
-        $("#cookie-hint").style.color = "var(--green)";
+        // 自动验证已保存的 cookie
+        validateCookie(c.cookie);
       }
     }
   } catch (e) {
     handleError(e);
   }
+}
+
+// ============ Cookie Validation ============
+// 缓存结构: {cookie, valid, at} — 同 cookie 30s 内不重复请求
+const VALIDATE_CACHE_TTL_MS = 30 * 1000;
+let _cookieValidateCache = null;
+let _cookieValidateInflight = null;
+
+async function validateCookie(cookie, showProgress = true) {
+  const hint = $("#cookie-hint");
+
+  // 命中缓存
+  if (
+    _cookieValidateCache &&
+    _cookieValidateCache.cookie === cookie &&
+    Date.now() - _cookieValidateCache.at < VALIDATE_CACHE_TTL_MS
+  ) {
+    return _cookieValidateCache.valid;
+  }
+  // 同 cookie 并发请求合并
+  if (_cookieValidateInflight && _cookieValidateInflight.cookie === cookie) {
+    return _cookieValidateInflight.promise;
+  }
+
+  if (showProgress) {
+    hint.textContent = "正在验证登录状态...";
+    hint.style.color = "var(--text-3)";
+  }
+
+  const promise = (async () => {
+    try {
+      const app_id = $("#input-app-id").value.trim();
+      const data = await api("/api/validate-cookie", {
+        method: "POST",
+        body: JSON.stringify({ cookie, app_id }),
+      });
+
+      const color = data.valid === true ? "var(--green)" : data.valid === false ? "var(--red)" : "var(--accent)";
+      hint.textContent = data.message;
+      hint.style.color = color;
+
+      if (data.valid === true) {
+        setStepDone("step1-dot");
+      } else if (data.valid === false) {
+        const dot = $("#step1-dot");
+        dot.classList.remove("done");
+        dot.textContent = "1";
+      }
+      _cookieValidateCache = { cookie, valid: data.valid, at: Date.now() };
+      return data.valid;
+    } catch (e) {
+      handleError(e, hint, "验证失败");
+      return null;
+    } finally {
+      _cookieValidateInflight = null;
+    }
+  })();
+
+  _cookieValidateInflight = { cookie, promise };
+  return promise;
 }
 
 // ============ Step 1: Auto Cookie ============
@@ -215,10 +274,11 @@ $("#btn-auto-cookie").addEventListener("click", async () => {
     const data = await api("/api/cookies");
     if (data.success) {
       $("#input-cookie").value = data.cookie;
-      hint.textContent = "登录信息同步成功";
-      hint.style.color = "var(--green)";
-      setStepDone("step1-dot");
+      hint.textContent = "Cookie 读取成功，正在验证...";
+      hint.style.color = "var(--text-3)";
       autoSaveConfig();
+      // 自动验证 cookie 有效性
+      await validateCookie(data.cookie);
     } else {
       hint.textContent = "未找到登录信息，请先用 Chrome 打开小鹅通并登录";
       hint.style.color = "var(--red)";
@@ -229,6 +289,25 @@ $("#btn-auto-cookie").addEventListener("click", async () => {
     btn.disabled = false;
     btn.innerHTML = '<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>一键同步 Chrome 登录';
   }
+});
+
+// ============ Manual Cookie Validation ============
+$("#btn-validate-cookie").addEventListener("click", async () => {
+  const cookie = $("#input-cookie").value.trim();
+  if (!cookie) {
+    const hint = $("#cookie-hint");
+    hint.textContent = "请先粘贴 Cookie";
+    hint.style.color = "var(--red)";
+    return;
+  }
+  autoSaveConfig();
+  await validateCookie(cookie);
+});
+
+$("#input-cookie").addEventListener("blur", () => {
+  const cookie = $("#input-cookie").value.trim();
+  if (!cookie) return;
+  setTimeout(() => validateCookie(cookie), 800);
 });
 
 // ============ Step 2: Parse URL ============
@@ -345,8 +424,21 @@ $("#btn-check-env").addEventListener("click", async () => {
 // ============ Video List ============
 $("#btn-refresh-videos").addEventListener("click", async () => {
   const btn = $("#btn-refresh-videos");
+  const cookie = $("#input-cookie").value.trim();
+
+  // 前置检查：cookie 为空直接提示
+  if (!cookie) {
+    $("#video-list").innerHTML = `<div class="empty"><p>请先在「设置」中同步登录状态（Cookie 为空）</p></div>`;
+    return;
+  }
+
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>加载中';
+
+  // 超时提示
+  const loadTimeout = setTimeout(() => {
+    btn.innerHTML = '<span class="spinner"></span>加载中（网络较慢...）';
+  }, 8000);
 
   try {
     const data = await api("/api/videos");
@@ -365,6 +457,7 @@ $("#btn-refresh-videos").addEventListener("click", async () => {
       $("#video-list").innerHTML = `<div class="empty"><p>获取失败: ${e.message}</p></div>`;
     }
   } finally {
+    clearTimeout(loadTimeout);
     btn.disabled = false;
     btn.textContent = "加载课程";
   }
@@ -446,6 +539,19 @@ function updateSelectedCount() {
   btn.disabled = selectedCount === 0;
   btn.textContent = selectedCount > 0 ? `下载选中 (${selectedCount})` : "下载选中";
 }
+
+// Video search/filter
+$("#input-video-search").addEventListener("input", (e) => {
+  const keyword = e.target.value.trim().toLowerCase();
+  if (!keyword) {
+    renderVideoList(videos);
+  } else {
+    const filtered = videos.filter(v =>
+      (v.resource_title || "").toLowerCase().includes(keyword)
+    );
+    renderVideoList(filtered);
+  }
+});
 
 // Select all
 $("#cb-select-all").addEventListener("change", (e) => {
@@ -601,12 +707,22 @@ function showResults(results) {
       `<div class="result-item result-success"><span class="result-dot"></span>${r.title}</div>`
     ).join("");
   }
+  const failedIds = results.failed?.length
+    ? results.failed.map(r => r.id).filter(Boolean)
+    : [];
   if (results.failed?.length) {
     html += results.failed.map(r =>
       `<div class="result-item result-failed"><span class="result-dot"></span>${r.title} — ${r.message}</div>`
     ).join("");
+    if (failedIds.length > 0) {
+      html += `<button id="btn-retry-failed" class="action-btn action-btn--primary action-btn--sm retry-failed-btn">重试失败项 (${failedIds.length})</button>`;
+    }
   }
-  content.innerHTML = html || '<p style="color:var(--text-3)">无结果</p>';
+  content.innerHTML = html || '<p class="result-empty">无结果</p>';
+  if (failedIds.length > 0) {
+    const retryBtn = $("#btn-retry-failed");
+    if (retryBtn) retryBtn.addEventListener("click", () => startDownload(failedIds));
+  }
 }
 
 $("#btn-cancel-download").addEventListener("click", async () => {
