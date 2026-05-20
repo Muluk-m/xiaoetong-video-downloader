@@ -8,6 +8,35 @@ from datetime import datetime
 from typing import Optional
 
 
+def _user_log_dir() -> str:
+    """Return a per-user log directory that is writable in packaged apps."""
+    if sys.platform == 'darwin':
+        return os.path.join(os.path.expanduser('~/Library/Logs'), 'xiaoet-downloader')
+    if os.name == 'nt':
+        base = os.environ.get('LOCALAPPDATA') or os.path.expanduser('~')
+        return os.path.join(base, 'xiaoet-downloader', 'logs')
+    return os.path.join(
+        os.environ.get('XDG_STATE_HOME', os.path.expanduser('~/.local/state')),
+        'xiaoet-downloader',
+        'logs',
+    )
+
+
+def _create_first_writable_dir(candidates: list[str]) -> str:
+    """Create and return the first usable directory from candidates."""
+    last_error: Optional[OSError] = None
+    for candidate in candidates:
+        try:
+            os.makedirs(candidate, exist_ok=True)
+            return candidate
+        except OSError as exc:
+            last_error = exc
+
+    if last_error:
+        raise last_error
+    raise OSError('No log directory candidates available')
+
+
 class Logger:
     """日志工具类"""
     
@@ -32,15 +61,12 @@ class Logger:
         if self._logger.handlers:
             return
         
-        # 创建日志目录（打包后 cwd 可能只读，使用 ~/Library 或 fallback 到 cwd）
+        # 创建日志目录（打包后 cwd 可能只读，使用用户日志目录并保留 fallback）
         if getattr(sys, 'frozen', False):
-            # PyInstaller 打包模式：写到用户目录
-            log_dir = os.path.join(
-                os.path.expanduser('~/Library/Logs'), 'xiaoet-downloader'
-            )
+            candidates = [_user_log_dir(), os.path.join(os.getcwd(), 'logs')]
         else:
-            log_dir = 'logs'
-        os.makedirs(log_dir, exist_ok=True)
+            candidates = ['logs', _user_log_dir()]
+        log_dir = _create_first_writable_dir(candidates)
         
         # 文件处理器
         log_file = os.path.join(log_dir, f'xiaoet_{datetime.now().strftime("%Y%m%d")}.log')
