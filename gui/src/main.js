@@ -183,7 +183,7 @@ async function loadConfig() {
       $("#input-cookie").value = c.cookie || "";
       $("#input-app-id").value = c.app_id || "";
       $("#input-product-id").value = c.product_id || "";
-      $("#input-download-dir").value = c.download_dir || "download";
+      $("#input-download-dir").value = c.download_dir || "";
       $("#input-max-workers").value = c.max_workers || 5;
 
       if (c.app_id && c.product_id) {
@@ -374,7 +374,7 @@ function _gatherConfig() {
     cookie: $("#input-cookie").value.trim(),
     app_id: $("#input-app-id").value.trim(),
     product_id: $("#input-product-id").value.trim(),
-    download_dir: $("#input-download-dir").value.trim() || "download",
+    download_dir: $("#input-download-dir").value.trim(),
     max_workers: parseInt($("#input-max-workers").value) || 5,
   };
 }

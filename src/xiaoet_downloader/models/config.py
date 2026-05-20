@@ -3,8 +3,14 @@
 
 import json
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Optional
+
+
+def default_download_dir() -> str:
+    """Return the default directory for completed downloads."""
+    return str(Path.home() / 'Downloads')
 
 
 @dataclass
@@ -13,7 +19,7 @@ class XiaoetConfig:
     app_id: str
     cookie: str
     product_id: str
-    download_dir: str = 'download'
+    download_dir: str = field(default_factory=default_download_dir)
     max_workers: int = 5  # 最大并发下载数
     
     @classmethod
@@ -27,7 +33,7 @@ class XiaoetConfig:
                 app_id=config_data.get('app_id', ''),
                 cookie=config_data.get('cookie', ''),
                 product_id=config_data.get('product_id', ''),
-                download_dir=config_data.get('download_dir', 'download'),
+                download_dir=config_data.get('download_dir') or default_download_dir(),
                 max_workers=config_data.get('max_workers', 5)
             )
         except FileNotFoundError:

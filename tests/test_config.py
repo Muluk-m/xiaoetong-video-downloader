@@ -11,7 +11,7 @@ from pathlib import Path
 # 添加src目录到Python路径
 sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 
-from xiaoet_downloader.models.config import XiaoetConfig
+from xiaoet_downloader.models.config import XiaoetConfig, default_download_dir
 
 
 class TestXiaoetConfig(unittest.TestCase):
@@ -75,6 +75,16 @@ class TestXiaoetConfig(unittest.TestCase):
         
         with self.assertRaises(ValueError):
             config.validate()
+
+    def test_default_download_dir(self):
+        """测试默认下载目录为用户 Downloads 目录"""
+        config = XiaoetConfig(
+            app_id="test_app_id",
+            cookie="test_cookie",
+            product_id="test_product_id"
+        )
+
+        self.assertEqual(config.download_dir, default_download_dir())
     
     def test_to_dict(self):
         """测试转换为字典"""
@@ -90,7 +100,8 @@ class TestXiaoetConfig(unittest.TestCase):
             'app_id': 'test_app_id',
             'cookie': 'test_cookie',
             'product_id': 'test_product_id',
-            'download_dir': 'test_download'
+            'download_dir': 'test_download',
+            'max_workers': 5
         }
         
         self.assertEqual(result, expected)

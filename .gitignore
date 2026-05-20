@@ -37,6 +37,13 @@ gui/node_modules/
 *.swo
 *~
 
+# ============ Agent/local planning state ============
+.agents/
+.claude/
+.codex/
+openspec/
+AGENTS.md
+
 # ============ OS ============
 .DS_Store
 Thumbs.db
