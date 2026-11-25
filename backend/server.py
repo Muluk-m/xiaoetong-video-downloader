@@ -29,7 +29,6 @@ def _sanitize_filename(filename: str) -> str:
         filename = filename[:200]
     return filename
 
-import rookiepy
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -51,6 +50,7 @@ else:
 
 from xiaoet_downloader import XiaoetConfig, XiaoetDownloadManager, logger
 from xiaoet_downloader.models.config import default_download_dir
+from xiaoet_downloader.utils.chrome_cookies import extract_chrome_cookies
 from xiaoet_downloader.models.video import (
     DownloadResult,
     DownloadStatus,
@@ -140,49 +140,35 @@ async def parse_url(req: ParseUrlRequest):
 
 
 @app.get("/api/cookies")
-async def get_chrome_cookies():
-    """从 Chrome 浏览器自动读取小鹅通的 Cookie"""
+def get_chrome_cookies(app_id: str = ""):
+    """从 Chrome 浏览器自动读取小鹅通的 Cookie（支持多 Profile 及权限诊断）。
+    Sync def: 内部涉及文件复制、SQLite 查询和 macOS 钥匙串调用，
+    FastAPI 会自动放到线程池里执行，不阻塞事件循环。
+    """
+    resolved_app_id = app_id.strip()
+    if not resolved_app_id and os.path.exists(CONFIG_PATH):
+        try:
+            with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+                saved = json.load(f)
+            resolved_app_id = (saved.get("app_id") or "").strip()
+        except Exception:
+            pass
+
+    return extract_chrome_cookies(app_id=resolved_app_id)
+
+
+@app.post("/api/open-privacy-settings")
+def open_privacy_settings():
+    """在 macOS 上打开「完全磁盘访问权限」设置页"""
+    if sys.platform != "darwin":
+        return {"success": False, "message": "仅支持在 macOS 上打开系统权限设置"}
     try:
-        # 小鹅通使用多个域名
-        domains = [".xiaoe-tech.com", ".xet.citv.cn", ".xiaoeknow.com", ".xet.tech"]
-
-        all_cookies = []
-        errors = []
-        for domain in domains:
-            try:
-                cookies = rookiepy.chrome([domain])
-                all_cookies.extend(cookies)
-            except Exception as e:
-                errors.append(f"domain {domain}: {e}")
-
-        # 如果按域名没找到，从全量 cookie 中搜索
-        if not all_cookies:
-            try:
-                all_browser_cookies = rookiepy.chrome()
-                keywords = ["xiaoe", "xet", "ko_token", "colla_login"]
-                all_cookies = [
-                    c for c in all_browser_cookies
-                    if any(kw in c.get("domain", "").lower() or kw in c.get("name", "").lower() for kw in keywords)
-                ]
-            except Exception as e:
-                errors.append(f"全量读取: {e}")
-
-        if not all_cookies:
-            msg = "未找到小鹅通相关 Cookie，请先在 Chrome 中登录小鹅通"
-            if errors:
-                msg += "。错误详情: [" + "; ".join(errors) + "]"
-            return {"success": False, "message": msg, "cookie": ""}
-
-        # 去重（按 name 去重，保留最后一个）
-        seen = {}
-        for c in all_cookies:
-            seen[c["name"]] = c["value"]
-
-        cookie_str = "; ".join(f"{k}={v}" for k, v in seen.items())
-
-        return {"success": True, "message": f"成功读取 {len(seen)} 个 Cookie", "cookie": cookie_str}
+        subprocess.Popen(
+            ["open", "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles"]
+        )
+        return {"success": True, "message": "已打开系统权限设置"}
     except Exception as e:
-        return {"success": False, "message": f"读取 Cookie 失败: {str(e)}", "cookie": ""}
+        return {"success": False, "message": f"打开系统设置失败: {e}"}
 
 
 class ValidateCookieRequest(BaseModel):

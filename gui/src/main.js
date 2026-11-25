@@ -267,27 +267,52 @@ async function validateCookie(cookie, showProgress = true) {
 $("#btn-auto-cookie").addEventListener("click", async () => {
   const btn = $("#btn-auto-cookie");
   const hint = $("#cookie-hint");
+  const permAction = $("#cookie-permission-action");
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>正在读取浏览器登录信息...';
+  if (permAction) permAction.classList.add("is-hidden");
+  hint.title = "";
 
   try {
-    const data = await api("/api/cookies");
+    const appId = $("#input-app-id").value.trim();
+    const endpoint = appId
+      ? `/api/cookies?app_id=${encodeURIComponent(appId)}`
+      : "/api/cookies";
+    const data = await api(endpoint);
     if (data.success) {
       $("#input-cookie").value = data.cookie;
-      hint.textContent = "Cookie 读取成功，正在验证...";
+      hint.textContent = `${data.message || "Cookie 读取成功"}，正在验证...`;
       hint.style.color = "var(--text-3)";
+      _cookieValidateCache = null;
       autoSaveConfig();
       // 自动验证 cookie 有效性
       await validateCookie(data.cookie);
     } else {
-      hint.textContent = "未找到登录信息，请先用 Chrome 打开小鹅通并登录";
+      hint.textContent = data.message || "未找到登录信息，请先用 Chrome 打开小鹅通并登录";
       hint.style.color = "var(--red)";
+      if (data.detail) hint.title = data.detail;
+      if (data.error_code === "permission_denied" && permAction) {
+        permAction.classList.remove("is-hidden");
+      }
     }
   } catch (e) {
     handleError(e, hint, "读取失败");
   } finally {
     btn.disabled = false;
     btn.innerHTML = '<svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>一键同步 Chrome 登录';
+  }
+});
+
+$("#btn-open-privacy-settings")?.addEventListener("click", async () => {
+  const hint = $("#cookie-hint");
+  try {
+    const data = await api("/api/open-privacy-settings", { method: "POST" });
+    if (!data.success && data.message) {
+      hint.textContent = data.message;
+      hint.style.color = "var(--red)";
+    }
+  } catch (e) {
+    handleError(e, hint, "打开系统设置失败");
   }
 });
 
@@ -300,6 +325,7 @@ $("#btn-validate-cookie").addEventListener("click", async () => {
     hint.style.color = "var(--red)";
     return;
   }
+  _cookieValidateCache = null;
   autoSaveConfig();
   await validateCookie(cookie);
 });

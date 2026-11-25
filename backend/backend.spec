@@ -61,6 +61,7 @@ a = Analysis(
         'xiaoet_downloader.utils',
         'xiaoet_downloader.utils.logger',
         'xiaoet_downloader.utils.file_utils',
+        'xiaoet_downloader.utils.chrome_cookies',
     ],
     hookspath=[],
     hooksconfig={},
